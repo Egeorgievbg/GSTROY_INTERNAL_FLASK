@@ -1,77 +1,72 @@
-# GSTROY Internal ERP Demo
+﻿# GSTROY Internal ERP Demo
 
-Комплектът е почти продукционна среда за проследяване на складови поръчки, инвентарни сканирания и администраторски операции за GSTROY Pallet & PickPoint. Решението е изградено върху Flask, SQLAlchemy, Bootstrap 5 и вътрешни микросервизни Routеs (PPP/ERP, принтер хъб, документни потоци).
+Това е моето лично Flask демо, в което съм сложил всички логики, които искам да покажа на девовете как да ги прехвърлят в Django. Нямам достъп до техния проект, затова си направих свои примери с PickPoint потоци, ERP payload-и, принтер хъб и всичко между тях - така мога да обясня кое къде влиза, без да им ровя в репото.
 
-## Архитектура в резюме
+> Говорим като приятели, а не като спецификация, така че очаквай жаргон, усмивки и намигания. :-)
 
-1. **Flask + blueprints**: `app/blueprints/` съдържа модулите `admin`, `catalog`, `logistics`, `orders`, `products`, `scanning` и `main`. Всеки описва своята UI логика, шаблони и API тунели, плюс обвързва общи services (`app/services/order_tasks.py`).
-2. **Database + models**: `database.py` и `models.py` описват SQLAlchemy измеренията (продукти, потребители, поръчки, задачи, принтери...) и bootstrap seed данни (`init_db()`), така че демото винаги стартира с валидна структура.
-3. **Printer service**: `printer_service/` е независим blueprint под `/printer-hub`, който проксира заявките към вътрешния label server, филтрира достъпа на потребителя и затяга копията (виж `docs/printer-module.md` за подробности).
-4. **Интеграция с Versus ERP**: Payload генератори (`app/services/order_tasks.py`) подготвят JSON за вход/изход, а UI (templates `stock_orders_*`) визуализира статуси, KPI панели и състояния на екипи.
-5. **Документация**: Всички детайли за структурата са описани в `docs/` (архитектурата, списък със blueprints и принтер модула).
+## Какво ще видиш тук
 
-## Бърз старт
+- **Flask + blueprints**: `app/blueprints/` държи модулите `admin`, `catalog`, `logistics`, `orders`, `products`, `scanning` и `main`. Всеки е с отделни view функции, шаблони и helpers, така че лесно може да се превърне в Django app/urls.
+- **Service слой**: `app/services/order_tasks.py` съдържа логики за scan tasks, ERP payload-и, генерация на PDF/CSV, планиране на stock orders и комуникация с PickPoint. Може да се раздели в Django services или Celery jobs.
+- **Модели и БД**: `database.py` и `models.py` са написани с SQLAlchemy. Има seed данни, генератори за кодове (`LST/PLT/TRF`) и helpers за FK, така че може да ги преведете директно в Django models + data migrations.
+- **Printer service**: `printer_service/` е отделен blueprint, който слуша `/printer-hub`. Тук симулирам label server и права за изпращане на PDF/label към физически принтери (`docs/printer-module.md` описва всички детайли). Django екипът може да пренапише това като самостоятелен app.
+- **UI + static assets**: `templates/` и `static/` са напълно Bootstrap 5 и responsive. Има готови fragment-и за `stock_orders_*`, `scanner`, `ppp_documents`, `pallets` и QR helpers.
+- **Docs и notes**: `docs/architecture.md`, `docs/blueprints.md` и `docs/printer-module.md` описват съставните части, отделните маршрути и какво да очаквате от принтер модула.
+
+## Как да го стартираш
 
 ```powershell
-.\\setup.ps1              # създава .venv, инсталира зависимостите
-.\\setup.ps1 -Run         # стартира dev сървъра
+python -m venv .venv
+.venv/Scripts/activate
+pip install -r requirements.txt
+python -m flask run --reload
+```
+
+Или използвай helper скриптовете:
+
+```powershell
+.\setup.ps1           # създава .venv и инсталира зависимостите
+.\setup.ps1 -Run      # run dev сървър
 ```
 
 ```bash
-./setup.sh                # Linux/macOS/Git Bash
-./setup.sh run            # стартира dev сървъра
+./setup.sh            # Linux/macOS/Git Bash
+./setup.sh run        # run dev сървър
 ```
 
-Алтернатива: `python -m venv .venv && ./.venv/Scripts/activate && pip install -r requirements.txt && python app.py`
+След логин можеш да разгледаш `/`, `/admin`, `/stock-orders`, `/scan-tasks`, `/printer-hub`, `/products` и `/catalog`.
 
-## Зависимости
+## Конфигурация (env или config)
 
-- `Flask==3.0.3`
-- `Flask-Login==0.6.3`
-- `Flask-WTF==1.2.1`
-- `SQLAlchemy==2.0.23`
-- `qrcode==7.4.2`
-- `Pillow==10.1.0`
-- `reportlab==4.0.8`
-
-## Конфигурационни променливи
-
-| Променлива | Стойност по подразбиране | Описание |
-|------------|---------------------------|----------|
-| `ERP_DEMO_SECRET_KEY` | `change-me` | Секрет за сесии и CSRF. |
-| `ERP_DEMO_DATABASE_URL` | `sqlite:///erp_demo.db` | Път към SQLite файл или друг SQLAlchemy URL. |
-| `ERP_DEMO_DEFAULT_PASSWORD` | `demo1234` | Парола за seed потребителите (`planner`, `builder`, …). |
-| `ERP_DEMO_MAX_UPLOAD_MB` | `4` | Максимален размер на CSV импорти (MB). |
-| `ERP_DEMO_SIGNATURE_MAX_KB` | `512` | Максимален размер на PNG подпис (PPP). |
-
-## Структура на проекта
-
-- `app/__init__.py`: фабрика (`create_app`) и регистрация на всички blueprints и прило-жни услуги (`printer_service`, csrf, login).
-- `app/blueprints/`: отделни модули по домейн (admin/catalog/orders/etc.). Всеки има собствени шаблони, данни и helper функции. Допълнително `catalog_sync.py`/`catalog_utils.py` предоставят нормализация и registry към каталозите.
-- `app/services/order_tasks.py`: споделени logics (статуси на поръчки, scan tasks, ERP payloads).
-- `constants.py` / `gstroy_constants.py`: дефиниции на статуси, типове, CSV полета, PDF шрифтове.
-- `database.py`: миграции/seed-ове, helper-и за уникални кодове (LST/PLT/TRF) и дефинирани FK зависимости.
-- `printer_service/`: API за принтери; препраща към вътрешен label server (`config -> PRINTER_SERVER_URL`).
-- `templates/` / `static/`: интерфейсните страници и стилове.
-
-## Документация
-
-- `docs/architecture.md`: високо ниво архитектура и как компонентите работят заедно.
-- `docs/blueprints.md`: списък на blueprints, тяхната отговорност и основни маршрути.
-- `docs/printer-module.md`: описание на принтер хъба, сигурността и взаимодействието със сървъра.
+| Променлива | Стойност по подразбиране | За какво служи |
+|------------|---------------------------|----------------|
+| `ERP_DEMO_SECRET_KEY` | `change-me` | Сесиите, CSRF и всичко, което се крие зад login-а. Смени я преди да покажеш демото.
+| `ERP_DEMO_DATABASE_URL` | `sqlite:///erp_demo.db` | Свързване към SQLite, но става и Postgres/MySQL.
+| `ERP_DEMO_DEFAULT_PASSWORD` | `demo1234` | Seed паролата за `planner`, `builder`, `admin` и другите потребители.
+| `ERP_DEMO_MAX_UPLOAD_MB` | `4` | Максимален размер на CSV файлове при `catalog_sync`.
+| `ERP_DEMO_SIGNATURE_MAX_KB` | `512` | Лимит за png подписите в PPP.
+| `PRINTER_SERVER_URL` | `http://localhost:5000/printer-hub/print` | Къде се пращат заявките за принтиране.
 
 ## Работа с проекта
 
-1. Запазете seed данни: `python -m flask run --reload` в dev среда и проверете `/admin`, `/stock-orders`, `/scan-tasks`.
-2. Админ потребители: `planner`, `builder`, `furniture`, `laminate`, `shop` (парола `demo1234`), `admin` (ако е добавен).
-3. Принтер хъб: изисква `assigned_warehouse` на потребителя; за всеки принтер се настройва IP/URL (`templates/product_detail.html` и `templates/pallet_detail.html` използват `/printer-hub/print-*`).
+1. `app/blueprints/` съдържа UX логиката, разбита по домейни: `/admin`, `/catalog`, `/orders`, `/scanning`, `/products`, `/stock-orders` (prepare, handover, dashboard). Всеки blueprint има свои шаблони и helpers.
+2. `app/services/order_tasks.py` показва как се подготвят ERP payload-и, как се работи със сканирани задачи и как се генерират PPP PDF-ове.
+3. `catalog_sync.py` + `catalog_utils.py` нормализират CSV данни и регистрират продуктите - идеален пример за background job.
+4. `printer_service/__init__.py` валидира подписите, рендира PDF и задейства принтера.
+5. Templates + static файловете са написани с Jinja и Bootstrap, готови да се пресъздадат в Django templates/staticfiles.
 
-## Пускане в продукция
+## Хубави практики преди прехвърлянето към Django
 
-- Използвайте WSGI сървър (Gunicorn/Hypercorn) и настройте `ERP_DEMO_DATABASE_URL` към PostgreSQL/MySQL.
-- Осигурете SSL, дефинирайте webhook за ERP (в `app/services/order_tasks.py`) и синхронизирайте `PPP_STATIC_DIR`.
-- Инвестирайте в документация на `docs/` и измервайте логовете от `printer_service` (timeout). Зависимостите са минимални и лесни за поддръжка.
+- Seed логиката от `database.py` може да се движи в Django fixtures/migrations.
+- `app/__init__.py` показва как се регистрират blueprints и services (CSRF, login, printer hub). В Django това е job за `apps.py` + `ready()`.
+- `constants.py` и `gstroy_constants.py` са домашната база от статуси, типове, шрифтове и CSV дефиниции. Може да се превърнат в Django enums или settings.
+- `docs/` папката служи като справочен материал за Django екипа - гайд за всяка част от flow-а.
 
----
+## Следващи крачки (ако искаш още)
 
-Когато сте готови за GitHub, добавете `docs/`, `templates/` и `static/` файлове и опишете blueprint структурата в същия README или отделен файл.
+1. Добави `.gitignore` с `__pycache__/`, `.pyc`, `.db`, `.env` и други временни файлове.
+2. Ако искаш, пиша кратък Django README, който описва същите домейни и как да ги реализирате тук.
+3. Може да напишеш unit тестове (Pytest/Flask) за helper-ите и services.
+4. Готов съм да ти драсна секция за миграции и миграционни бележки в `docs/`.
+
+Ако искаш, мога да пратя и кратък текст за презентация или да сложа снимки/GIF-ове - кажи просто "+1" и го добавям. :-)
