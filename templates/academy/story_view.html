@@ -13,13 +13,14 @@
     <a href="{{ url_for('academy.dashboard') }}" class="close-story"><i class="bi bi-x-lg"></i></a>
   </div>
   <div class="story-content">
-    {% if item.media_url %}
-      {% if item.media_url.startswith('http') %}
+    {% set media_src = item.media_url or '' %}
+    {% if media_src %}
+      {% if media_src.startswith('http') %}
         <div class="ratio ratio-9x16">
-          <iframe src="{{ item.media_url }}" title="{{ item.title }}" allowfullscreen></iframe>
+          <iframe src="{{ media_src }}" title="{{ item.title }}" allowfullscreen></iframe>
         </div>
       {% else %}
-        <img src="{{ url_for('static', filename=item.media_url.strip('/') ) }}" alt="{{ item.title }}">
+        <img src="{{ url_for('static', filename=media_src) }}" alt="{{ item.title }}">
       {% endif %}
     {% endif %}
     <div class="text-center mt-3">

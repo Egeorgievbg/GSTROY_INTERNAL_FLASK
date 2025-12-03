@@ -14,11 +14,12 @@
     </div>
     <h1 class="display-6 fw-bold mb-3">{{ item.title }}</h1>
     <div class="ratio ratio-16x9 mb-3">
-      {% if item.media_url %}
-        {% if item.media_url.startswith('http') %}
-          <iframe src="{{ item.media_url }}" title="{{ item.title }}" allowfullscreen></iframe>
+      {% set media_src = item.media_url or '' %}
+      {% if media_src %}
+        {% if media_src.startswith('http') %}
+          <iframe src="{{ media_src }}" title="{{ item.title }}" allowfullscreen></iframe>
         {% else %}
-          <img src="{{ url_for('static', filename=item.media_url.strip('/') ) }}" class="rounded-3 w-100 h-100 object-cover" alt="{{ item.title }}">
+          <img src="{{ url_for('static', filename=media_src) }}" class="rounded-3 w-100 h-100 object-cover" alt="{{ item.title }}">
         {% endif %}
       {% else %}
         <div class="bg-dark text-light d-flex align-items-center justify-content-center rounded-3">

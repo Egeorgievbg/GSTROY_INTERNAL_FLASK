@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for, current_app
@@ -25,6 +26,7 @@ from models import (
     Role,
     ServicePoint,
     User,
+    UserContentProgress,
     Warehouse,
     Printer,
     Location,
@@ -193,11 +195,25 @@ def _academy_upload_dir():
     return upload_root
 
 
+ACADEMY_CATEGORIES = ["Security", "HR", "Features", "Operations", "Logistics"]
+
+
+def _estimate_read_time(html_text: str) -> int:
+    if not html_text:
+        return 2
+    plain = re.sub(r"<[^>]+>", "", html_text)
+    words = plain.split()
+    return max(1, len(words) // 160)
+
+
 @admin_bp.route("/academy", methods=["GET", "POST"])
 def academy_content():
     require_admin()
     session = g.db
+    edit_id = request.args.get("edit", type=int)
+    edit_item = session.get(ContentItem, edit_id) if edit_id else None
     if request.method == "POST":
+        item_id = request.form.get("item_id", type=int)
         title = (request.form.get("title") or "").strip()
         if not title:
             flash("Заглавието е задължително.", "warning")
@@ -212,25 +228,58 @@ def academy_content():
             if filename:
                 upload_path = os.path.join(_academy_upload_dir(), filename)
                 media_file.save(upload_path)
-                media_url = f"static/uploads/{filename}"
-        read_time = request.form.get("read_time_minutes", type=int)
-        item = ContentItem(
-            title=title,
-            summary=(request.form.get("summary") or "").strip(),
-            content_html=(request.form.get("content_html") or "").strip(),
-            media_url=media_url or None,
-            content_type=content_type,
-            category=(request.form.get("category") or "").strip() or None,
-            read_time_minutes=read_time or 0,
-            is_published=parse_bool(request.form.get("is_published")),
-            created_at=datetime.utcnow(),
-        )
+                media_url = f"uploads/{filename}"
+        html_content = (request.form.get("content_html") or "").strip()
+        read_time = _estimate_read_time(html_content)
+        target_item = session.get(ContentItem, item_id) if item_id else None
+        if target_item:
+            target_item.title = title
+            target_item.summary = (request.form.get("summary") or "").strip()
+            target_item.content_html = html_content
+            if media_url:
+                target_item.media_url = media_url
+            target_item.content_type = content_type
+            target_item.category = (request.form.get("category") or "").strip() or None
+            target_item.read_time_minutes = read_time
+            target_item.is_published = parse_bool(request.form.get("is_published"))
+            item = target_item
+        else:
+            item = ContentItem(
+                title=title,
+                summary=(request.form.get("summary") or "").strip(),
+                content_html=html_content,
+                media_url=media_url or None,
+                content_type=content_type,
+                category=(request.form.get("category") or "").strip() or None,
+                read_time_minutes=read_time,
+                is_published=parse_bool(request.form.get("is_published")),
+                created_at=datetime.utcnow(),
+            )
         session.add(item)
         session.commit()
-        flash("Контентът беше създаден успешно.", "success")
+        flash("Контентът беше запазен успешно.", "success")
         return redirect(url_for(".academy_content"))
     items = session.query(ContentItem).order_by(ContentItem.created_at.desc()).all()
-    return render_template("admin_academy.html", items=items)
+    progresses = session.query(UserContentProgress).all()
+    stats = {}
+    reactions = {}
+    for record in progresses:
+        stats.setdefault(record.content_item_id, 0)
+        if record.is_read:
+            stats[record.content_item_id] += 1
+        if record.reaction:
+            reactions.setdefault(record.content_item_id, {})
+            reactions[record.content_item_id][record.reaction] = (
+                reactions[record.content_item_id].get(record.reaction, 0) + 1
+            )
+    return render_template(
+        "admin_academy.html",
+        items=items,
+        stats=stats,
+        reactions=reactions,
+        edit_item=edit_item,
+        categories=ACADEMY_CATEGORIES,
+    )
 
 
 @admin_bp.route("/academy/push", methods=["POST"])

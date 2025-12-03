@@ -5,39 +5,39 @@
 {% block content %}
 <div class="card mb-4">
   <div class="card-body">
-    <h3 class="card-title mb-4">Academy content</h3>
+    <h3 class="card-title mb-4">{{ edit_item and 'Редактирай съдържание' or 'Academy content' }}</h3>
     <form method="post" enctype="multipart/form-data">
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Заглавие</label>
-          <input name="title" class="form-control" required>
+          <input name="title" class="form-control" value="{{ edit_item.title if edit_item else '' }}" required>
         </div>
         <div class="col-md-6">
           <label class="form-label">Категория</label>
-          <input name="category" class="form-control">
+          <select name="category" class="form-select">
+            <option value="">Избери категория</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}" {% if edit_item and edit_item.category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="col-md-4">
           <label class="form-label">Тип съдържание</label>
           <select name="content_type" class="form-select">
-            <option value="NEWS">News</option>
-            <option value="GUIDE">Guide</option>
-            <option value="STORY">Story</option>
+            {% for ct in ['NEWS','GUIDE','STORY'] %}
+              <option value="{{ ct }}" {% if edit_item and edit_item.content_type == ct %}selected{% endif %}>{{ ct }}</option>
+            {% endfor %}
           </select>
         </div>
-        <div class="col-md-4">
-          <label class="form-label">Време за четене</label>
-          <input type="number" name="read_time_minutes" class="form-control" min="1" value="2">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label d-block">Публикувано</label>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="is_published" checked>
-            <label class="form-check-label">Да</label>
+        <div class="col-md-4 d-flex align-items-center">
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" name="is_published" {% if edit_item and edit_item.is_published %}checked{% endif %}>
+            <label class="form-check-label">Публикувано</label>
           </div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Мултимедия (URL)</label>
-          <input class="form-control" name="media_url">
+          <input class="form-control" name="media_url" value="{{ edit_item.media_url if edit_item else '' }}">
         </div>
         <div class="col-md-6">
           <label class="form-label">или качи файл</label>
@@ -45,15 +45,19 @@
         </div>
         <div class="col-12">
           <label class="form-label">Кратко описание</label>
-          <input name="summary" class="form-control">
+          <input name="summary" class="form-control" value="{{ edit_item.summary if edit_item else '' }}">
         </div>
         <div class="col-12">
           <label class="form-label">Съдържание (HTML)</label>
-          <textarea name="content_html" class="form-control" rows="4"></textarea>
+          <textarea name="content_html" class="form-control" rows="4">{{ edit_item.content_html if edit_item else '' }}</textarea>
         </div>
+        <input type="hidden" name="item_id" value="{{ edit_item.id if edit_item else '' }}">
       </div>
       <div class="mt-4">
-        <button class="btn btn-primary">Запази съдържанието</button>
+        <button class="btn btn-primary">{{ edit_item and 'Запази промени' or 'Запази съдържанието' }}</button>
+        {% if edit_item %}
+        <a href="{{ url_for('admin.academy_content') }}" class="btn btn-link">Откажи</a>
+        {% endif %}
       </div>
     </form>
   </div>
@@ -61,7 +65,7 @@
 
 <div class="card mb-3">
   <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
       <h5 class="mb-0">Списък със съдържание</h5>
       <form method="post" action="{{ url_for('admin.academy_push') }}" class="d-flex gap-2">
         <select name="push_item_id" class="form-select form-select-sm">
@@ -75,16 +79,31 @@
     {% if items %}
       <div class="list-group">
         {% for item in items %}
-          <div class="list-group-item d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div>
-              <strong>{{ item.title }}</strong>
-              <p class="mb-0 text-muted small">
-                {{ item.content_type }} • {{ item.category or 'Без категория' }} • {{ item.read_time_minutes or 2 }} мин
+          <div class="list-group-item d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div class="flex-fill">
+              <div class="d-flex align-items-center gap-3">
+                <strong class="fs-5">{{ item.title }}</strong>
+                <span class="badge bg-info">{{ item.content_type }}</span>
+              </div>
+              <p class="mb-1 text-muted small">
+                {{ item.category or 'Без категория' }} • ~{{ item.read_time_minutes or 2 }} мин
               </p>
+              <div class="d-flex gap-3 flex-wrap align-items-center text-muted small">
+                <span>Прочетено: {{ stats.get(item.id, 0) }}</span>
+                <span>Реакции:</span>
+                <div class="d-flex gap-1 flex-wrap">
+                  {% for reaction, count in reactions.get(item.id, {}).items() %}
+                    <span class="badge bg-light text-dark">{{ reaction }} {{ count }}</span>
+                  {% else %}
+                    <span class="text-muted">няма</span>
+                  {% endfor %}
+                </div>
+              </div>
             </div>
             <div class="text-end">
               <small class="text-muted d-block">Създадено: {{ item.created_at.strftime('%d.%m.%Y') }}</small>
               <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="btn btn-sm btn-link">Преглед</a>
+              <a href="{{ url_for('admin.academy_content') }}?edit={{ item.id }}" class="btn btn-sm btn-outline-primary">Редактирай</a>
             </div>
           </div>
         {% endfor %}
