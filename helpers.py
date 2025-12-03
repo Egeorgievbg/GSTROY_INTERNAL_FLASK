@@ -67,13 +67,13 @@ def normalize_name(value: str | None) -> str:
 
 def safe_redirect_target(target: str | None):
     if not target:
-        return url_for("index")
+        return url_for("main.index")
     host_url = request.host_url
     ref_url = urlparse(host_url)
     test_url = urlparse(urljoin(host_url, target))
     if test_url.scheme in {"http", "https"} and test_url.netloc == ref_url.netloc:
         return target
-    return url_for("index")
+    return url_for("main.index")
 
 
 def user_warehouse(user):
