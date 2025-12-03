@@ -1,0 +1,405 @@
+﻿{% extends "base.html" %}
+
+{% block title %}
+    {% if user %}Редакция: {{ user.username }}{% else %}Нов потребител{% endif %}
+{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* --- PAGE SPECIFIC STYLES (Colorful/Card Design) --- */
+    
+    /* 1. Dark Hero */
+    .admin-brand-hero {
+        background: linear-gradient(135deg, var(--brand-dark) 0%, #1e293b 100%);
+        border-radius: 24px;
+        padding: 2.5rem 3rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .admin-brand-hero::before {
+        content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+        background-image: radial-gradient(circle at 90% 10%, rgba(166, 207, 57, 0.15), transparent 40%);
+        pointer-events: none;
+    }
+
+    .back-btn {
+        width: 48px; height: 48px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; transition: all 0.2s;
+        text-decoration: none;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.2); transform: translateX(-3px); color: #fff; }
+
+    /* 2. Form Section Styles */
+    .form-card {
+        background: #fff; border-radius: 24px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0,0,0,0.03);
+    }
+
+    .section-label {
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+        color: #94a3b8; font-weight: 800; margin-bottom: 1.5rem;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .section-label::after { content: ''; height: 1px; flex-grow: 1; background: #f1f5f9; }
+
+    /* 3. Role Cards (Grid) */
+    .role-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;
+    }
+
+    .role-card {
+        background: #fff;
+        border: 2px solid #f1f5f9;
+        border-radius: 16px;
+        padding: 1.25rem;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    
+    .role-card:hover { border-color: #cbd5e1; background: #f8fafc; }
+    
+    /* Active State (Green Border) */
+    .role-card.active {
+        border-color: var(--brand-green);
+        background: #f0fdf4;
+        box-shadow: 0 4px 15px rgba(166, 207, 57, 0.15);
+    }
+
+    .role-icon {
+        width: 48px; height: 48px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; margin-right: 1rem;
+        transition: all 0.2s;
+    }
+
+    /* Colors for icons */
+    .icon-admin { background: #fee2e2; color: #ef4444; }
+    .icon-assign { background: #dbeafe; color: #2563eb; }
+    .icon-prep { background: #f3f4f6; color: #4b5563; }
+
+    /* Checkbox Styling */
+    .form-check-input {
+        width: 3em; height: 1.5em; cursor: pointer;
+    }
+    .form-check-input:checked {
+        background-color: var(--brand-green);
+        border-color: var(--brand-green);
+    }
+    
+    /* Inputs Override from Admin CSS */
+    .input-group-aero {
+        display: flex; align-items: center;
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 0.5rem 1rem; transition: 0.2s;
+    }
+    .input-group-aero:focus-within {
+        background: #fff; border-color: var(--brand-green);
+        box-shadow: 0 0 0 3px rgba(166, 207, 57, 0.1);
+    }
+    .input-icon { color: #94a3b8; margin-right: 10px; }
+    .input-aero { border: none; background: transparent; width: 100%; outline: none; font-weight: 600; color: #334155; }
+    
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 1200px;">
+    
+    <!-- HEADER -->
+    <div class="admin-brand-hero fade-in">
+        <a href="{{ url_for('admin.users_panel') }}" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <span style="font-size: 0.7rem; text-transform: uppercase; color: var(--brand-green); font-weight: 800; letter-spacing: 1px;">
+                {% if user %}Редакция на профил{% else %}Създаване на акаунт{% endif %}
+            </span>
+            <h1 class="m-0 fw-bold">{{ user.full_name if user else 'Нов потребител' }}</h1>
+        </div>
+    </div>
+
+    <!-- MAIN FORM -->
+    <form method="post" class="fade-in-item" style="animation-delay: 0.1s;"
+          action="{% if user %}{{ url_for('admin.update_user', user_id=user.id) }}{% else %}{{ url_for('admin.user_create') }}{% endif %}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="row g-4">
+            
+            <!-- LEFT COLUMN: CREDENTIALS -->
+            <div class="col-lg-5">
+                <div class="form-card h-100">
+                    <div class="section-label"><i class="fas fa-id-card"></i> Основни Данни</div>
+                    
+                    <!-- Username -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Потребителско име</label>
+                        <div class="input-group-aero">
+                            <span class="input-icon"><i class="fas fa-user-tag"></i></span>
+                            <input type="text" class="input-aero" name="username" 
+                                   value="{{ user.username if user else '' }}" 
+                                   {% if user %}disabled style="background: transparent; color: #94a3b8;"{% endif %} 
+                                   required placeholder="напр. ivan.georgiev">
+                        </div>
+                        {% if user %}
+                        <div class="form-text text-muted small mt-1">
+                            <i class="fas fa-info-circle me-1"></i> Username не може да се променя.
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Full Name -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Име и Фамилия</label>
+                        <div class="input-group-aero">
+                            <span class="input-icon"><i class="fas fa-user"></i></span>
+                            <input type="text" class="input-aero" name="full_name" 
+                                   value="{{ user.full_name if user else '' }}" 
+                                   required placeholder="Иван Георгиев">
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold text-muted text-uppercase">
+                            Парола {% if user %}<span class="fw-normal text-warning">(Остави празно ако не променяш)</span>{% endif %}
+                        </label>
+                        <div class="input-group-aero">
+                            <span class="input-icon"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="input-aero" name="password" 
+                                   placeholder="••••••••" 
+                                   {% if not user %}required{% endif %}>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Имейл</label>
+                            <div class="input-group-aero">
+                                <span class="input-icon"><i class="fas fa-envelope"></i></span>
+                                <input type="email" class="input-aero" name="email"
+                                       value="{{ user.email if user else '' }}"
+                                       placeholder="ivan@example.com">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Телефон</label>
+                            <div class="input-group-aero">
+                                <span class="input-icon"><i class="fas fa-phone"></i></span>
+                                <input type="tel" class="input-aero" name="phone"
+                                       value="{{ user.phone if user else '' }}"
+                                       placeholder="+359 88 000 0000">
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Идентификационен номер</label>
+                            <div class="input-group-aero">
+                                <span class="input-icon"><i class="fas fa-id-badge"></i></span>
+                                <input type="text" class="input-aero" name="employee_number"
+                                       value="{{ user.employee_number if user else '' }}"
+                                       placeholder="EMP-12345">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-4 mt-4 flex-wrap">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_staff" value="1"
+                                   id="input-staff" {% if user and user.is_staff %}checked{% endif %}>
+                            <label class="form-check-label ms-2" for="input-staff">Служител</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" value="1"
+                                   id="input-active" {% if not user or user.is_active %}checked{% endif %}>
+                            <label class="form-check-label ms-2" for="input-active">Активен</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="can_view_competitor_prices" value="1"
+                                   id="input-competitor" {% if user and user.can_view_competitor_prices %}checked{% endif %}>
+                            <label class="form-check-label ms-2" for="input-competitor">&#x041F;&#x043E;&#x043A;&#x0430;&#x0437;&#x0432;&#x0430; &#x043A;&#x043E;&#x043D;&#x043A;&#x0443;&#x0440;&#x0435;&#x043D;&#x0442;&#x043D;&#x0438; &#x0446;&#x0435;&#x043D;&#x0438;</label>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Служебен склад</label>
+                            <select name="assigned_warehouse_id" class="surface-input">
+                                <option value="">Няма</option>
+                                {% for wh in warehouses %}
+                                    <option value="{{ wh.id }}"
+                                            {% if user and user.assigned_warehouse_id == wh.id %}selected{% endif %}>
+                                        {{ wh.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Ръководител</label>
+                            <select name="manager_id" class="surface-input">
+                                <option value="">Няма</option>
+                                {% for manager in managers %}
+                                    <option value="{{ manager.id }}"
+                                            {% if user and user.manager_id == manager.id %}selected{% endif %}>
+                                        {{ manager.full_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 small text-muted">
+                        <div>Дата на регистрация: {{ user.registered_at.strftime('%d.%m.%Y %H:%M') if user and user.registered_at else '—' }}</div>
+                        <div>Последно вписване: {{ user.last_login_at.strftime('%d.%m.%Y %H:%M') if user and user.last_login_at else '—' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: ROLES & PERMISSIONS -->
+            <div class="col-lg-7">
+                <div class="form-card h-100">
+                    <div class="section-label"><i class="fas fa-shield-alt"></i> Права и Роли</div>
+                    
+                    <div class="role-grid">
+                        
+                        <!-- Admin Toggle -->
+                        <label class="role-card" id="card-admin">
+                            <div class="d-flex align-items-center">
+                                <div class="role-icon icon-admin">
+                                    <i class="fas fa-user-shield"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-1">Администратор</h6>
+                                    <p class="small text-muted mb-0 lh-sm">Пълен достъп до настройки, потребители и логове.</p>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch ms-3">
+                                <input class="form-check-input role-check" type="checkbox" name="is_admin" 
+                                       {% if user and user.is_admin %}checked{% endif %} 
+                                       onchange="toggleCard(this, 'card-admin')">
+                            </div>
+                        </label>
+
+                        <!-- Assign Toggle -->
+                        <label class="role-card" id="card-assign">
+                            <div class="d-flex align-items-center">
+                                <div class="role-icon icon-assign">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-1">Разпределител</h6>
+                                    <p class="small text-muted mb-0 lh-sm">Може да назначава поръчки към складовете.</p>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch ms-3">
+                                <input class="form-check-input role-check" type="checkbox" name="can_assign_orders" 
+                                       {% if user and user.can_assign_orders %}checked{% endif %}
+                                       onchange="toggleCard(this, 'card-assign')">
+                            </div>
+                        </label>
+
+                        <!-- Prepare Toggle -->
+                        <label class="role-card" id="card-prep">
+                            <div class="d-flex align-items-center">
+                                <div class="role-icon icon-prep">
+                                    <i class="fas fa-box-open"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-1">Складов служител</h6>
+                                    <p class="small text-muted mb-0 lh-sm">Вижда задачи, сканира стока и изпълнява заявки.</p>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch ms-3">
+                                <input class="form-check-input role-check" type="checkbox" name="can_prepare_orders" 
+                                       {% if user and user.can_prepare_orders %}checked{% endif %}
+                                       onchange="toggleCard(this, 'card-prep')">
+                            </div>
+                        </label>
+
+                    </div>
+                
+                    <div class="mt-4">
+                        <div class="section-label"><i class="fas fa-map-marker-alt"></i> Локации</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for sp in service_points %}
+                                <label class="form-check form-check-inline align-items-center bg-light px-3 py-2 rounded-3 border">
+                                    <input class="form-check-input me-2" style="width: 1.2em; height: 1.2em;" type="checkbox" name="service_points" value="{{ sp.id }}"
+                                           {% if user and sp in user.service_points %}checked{% endif %}>
+                                    <span class="text-dark fw-bold small">{{ sp.name }}</span>
+                                </label>
+                            {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="section-label"><i class="fas fa-network-wired"></i> Роли</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for role in roles %}
+                        <label class="form-check form-check-inline align-items-center bg-light px-3 py-2 rounded-3 border">
+                            <input class="form-check-input me-2" type="checkbox" name="roles" value="{{ role.id }}"
+                                   {% if user and role in user.roles %}checked{% endif %}>
+                            <span class="text-dark fw-bold small">{{ role.name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if roles|length == 0 %}
+                    <p class="text-muted small mt-2 mb-0">Няма дефинирани роли.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Alert info -->
+                    <div class="alert alert-light border mt-4 mb-0 d-flex align-items-center gap-3">
+                        <i class="fas fa-info-circle text-primary fs-4"></i>
+                        <div class="small text-muted">
+                            Промените в правата влизат в сила веднага. Ако потребителят е логнат, може да се наложи да излезе и влезе отново.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER ACTIONS -->
+        <div class="d-flex justify-content-end gap-3 mt-4 mb-5">
+            <a href="{{ url_for('admin.users_panel') }}" class="btn btn-lg btn-light border px-4 fw-bold text-muted">Отказ</a>
+            <button type="submit" class="btn btn-lg btn-brand-new px-5">
+                <i class="fas fa-save me-2"></i> {{ 'Създай профил' if not user else 'Запази промените' }}
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<!-- Script for Card Highlight -->
+<script>
+    function toggleCard(checkbox, cardId) {
+        const card = document.getElementById(cardId);
+        if (checkbox.checked) {
+            card.classList.add('active');
+        } else {
+            card.classList.remove('active');
+        }
+    }
+
+    // Initialize state on load
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('.role-check').forEach(input => {
+            // Find parent label ID by traversing up
+            const label = input.closest('label');
+            if(label) toggleCard(input, label.id);
+        });
+    });
+</script>
+{% endblock %}

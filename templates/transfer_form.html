@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Нов трансфер{% endblock %}
+{% block content %}
+<h1 class="mb-4">Трансфер за {{ product_list.title }} ({{ product_list.code }})</h1>
+{% if product_list.target_warehouse %}
+  <div class="alert alert-info">
+    Текущ целеви склад: {{ product_list.target_warehouse.name }}
+  </div>
+{% endif %}
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Склад получател</label>
+    <select name="destination_warehouse_id" class="form-select" required>
+      <option value="">Изберете...</option>
+      {% for warehouse in warehouses %}
+      <option value="{{ warehouse.id }}">{{ warehouse.name }} ({{ warehouse.code }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Източник</label>
+    <input type="text" class="form-control" value="{{ product_list.current_warehouse.name }}" disabled>
+  </div>
+  <div class="text-end">
+    <a href="{{ url_for('logistics.pallet_detail', list_id=product_list.id) }}" class="btn btn-secondary">Назад</a>
+    <button type="submit" class="btn btn-primary">Създай трансфер</button>
+  </div>
+</form>
+{% endblock %}

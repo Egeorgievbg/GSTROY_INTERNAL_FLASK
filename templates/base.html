@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="bg" class="h-100">
+  <head>
+    <meta charset="utf-8">
+    <!-- Важно: viewport-fit=cover оправя белите ленти на iPhone -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}GSTROY ERP{% endblock %}</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <!-- ЕТО ТОВА ЛИПСВАШЕ: Тук ще се зарежда admin.css -->
+    {% block extra_styles %}{% endblock %}
+    
+  </head>
+  <body class="d-flex flex-column h-100">
+    
+    <!-- 1. HEADER (Desktop) -->
+    {% if current_user and current_user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg desktop-header">
+      <!-- Използваме container-fluid за максимално място на екрана -->
+      <div class="container-fluid px-3 px-lg-4">
+        
+        <!-- Logo -->
+        <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-dark" href="{{ url_for('main.index') }}">
+          <img src="https://internal.gstroy.bg/static/assets/images/GStroy-logo.svg" alt="GStroy" height="28">
+          <!-- Скриваме надписа на много малки екрани, показваме го на големи -->
+          <span class="d-none d-xl-inline opacity-50 border-start ps-2 ms-1" style="font-size: 0.9rem;">INTERNAL</span>
+        </a>
+
+        <!-- Hamburger Menu (Mobile Only) -->
+        <button class="navbar-toggler border-0 p-0 d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileOffcanvas">
+            <i class="bi bi-list fs-1 text-dark"></i>
+        </button>
+
+        <!-- Desktop Navigation Links -->
+        <div class="collapse navbar-collapse desktop-nav-links">
+          <ul class="navbar-nav mx-auto align-items-center">
+            <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if request.endpoint == 'main.index' }}" href="{{ url_for('main.index') }}">
+                    <i class="bi bi-house-door"></i> Начало
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if request.endpoint == 'products' }}" href="{{ url_for('products.products') }}">
+                    <i class="bi bi-box-seam"></i> Продукти
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if 'simple_list' in request.endpoint }}" href="{{ url_for('logistics.simple_list_index') }}">
+                    <i class="bi bi-list-check"></i> Списъци
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if 'pallet' in request.endpoint }}" href="{{ url_for('logistics.pallet_list') }}">
+                    <i class="bi bi-boxes"></i> Палети
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if 'transfer' in request.endpoint }}" href="{{ url_for('logistics.transfers') }}">
+                    <i class="bi bi-arrow-left-right"></i> Трансфери
+                </a>
+            </li>
+            
+            <!-- Dropdown Menu -->
+            <li class="nav-item dropdown">
+                <a class="nav-link-modern dropdown-toggle {{ 'active' if 'stock_orders' in request.endpoint or 'ppp' in request.endpoint }}" href="#" data-bs-toggle="dropdown">
+                    <i class="bi bi-clipboard-data"></i> Нареждания
+                </a>
+                <ul class="dropdown-menu shadow-lg border-0 rounded-4 mt-3 p-2 animate-slide-up" style="min-width: 220px;">
+                    <li>
+                        <a class="dropdown-item rounded-3 py-2 mb-1" href="{{ url_for('orders.stock_orders_dashboard') }}">
+                            <div class="fw-bold text-dark">Всички задачи</div>
+                            <div class="small text-muted">Общ преглед</div>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item rounded-3 py-2 mb-1" href="{{ url_for('orders.stock_orders_assigned') }}">
+                            <div class="fw-bold text-dark">Моите задачи</div>
+                            <div class="small text-muted">Личен панел</div>
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1 opacity-25"></li>
+                    <li>
+                        <a class="dropdown-item rounded-3 py-2" href="{{ url_for('orders.ppp_documents') }}">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-text text-muted"></i>
+                                <span>ППП Документи</span>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            
+            <li class="nav-item ms-2">
+                <a class="nav-link-modern {{ 'active' if 'scan_task' in request.endpoint }}" href="{{ url_for('scanning.scan_task_list') }}">
+                    <i class="bi bi-upc-scan"></i> Скенер
+                </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- User Profile (Desktop Only) -->
+        <div class="d-none d-lg-flex align-items-center gap-3">
+            {% if current_user and current_user.is_authenticated %}
+              <div class="dropdown">
+                <a href="#" class="d-flex align-items-center text-decoration-none" data-bs-toggle="dropdown">
+                  <div class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center fw-bold shadow-sm border border-2 border-white" 
+                       style="width: 40px; height: 40px; background: linear-gradient(135deg, #334155 0%, #0f172a 100%);">
+                    {{ current_user.full_name[:1] }}
+                  </div>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 mt-3 p-2">
+                  <li class="px-3 py-2 border-bottom mb-2">
+                      <div class="fw-bold text-dark">{{ current_user.full_name }}</div>
+                      <div class="text-muted small">{{ current_user.username }}</div>
+                  </li>
+                  {% if current_user.is_admin %}
+                  <li><a class="dropdown-item rounded-3" href="{{ url_for('admin.panel') }}"><i class="bi bi-gear me-2 text-muted"></i>Админ панел</a></li>
+                  {% endif %}
+                  <li><a class="dropdown-item rounded-3" href="{{ url_for('products.import_products') }}"><i class="bi bi-cloud-upload me-2 text-muted"></i>Импорт</a></li>
+                  <li>
+                    <form method="post" action="{{ url_for('auth.logout') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="dropdown-item rounded-3 text-danger fw-bold mt-1">
+                            <i class="bi bi-box-arrow-right me-2"></i> Изход
+                        </button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
+            {% else %}
+              <a class="btn btn-brand-new btn-sm px-4" href="{{ url_for('auth.login') }}">Вход</a>
+            {% endif %}
+        </div>
+      </div>
+    </nav>
+    {% endif %}
+
+    <!-- 2. OFFCANVAS MOBILE MENU (Странично меню) -->
+    <div class="offcanvas offcanvas-end offcanvas-custom w-75 d-lg-none" tabindex="-1" id="mobileOffcanvas">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-bold text-dark">Меню</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column px-3 py-4">
+            {% if current_user and current_user.is_authenticated %}
+                <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-white rounded-4 shadow-sm border">
+                    <div class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center fw-bold" 
+                         style="width: 48px; height: 48px; background: linear-gradient(135deg, #334155 0%, #0f172a 100%); font-size: 1.2rem;">
+                        {{ current_user.full_name[:1] }}
+                    </div>
+                    <div>
+                        <div class="fw-bold text-dark lh-1">{{ current_user.full_name }}</div>
+                        <small class="text-muted">{{ current_user.username }}</small>
+                    </div>
+                </div>
+                
+                <nav class="nav flex-column gap-2 flex-grow-1">
+                    <a class="mobile-menu-link {{ 'active' if request.endpoint == 'main.index' }}" href="{{ url_for('main.index') }}">
+                        <i class="bi bi-house-door"></i> Начало
+                    </a>
+                    <a class="mobile-menu-link {{ 'active' if request.endpoint == 'products' }}" href="{{ url_for('products.products') }}">
+                        <i class="bi bi-box-seam"></i> Продукти
+                    </a>
+                    <a class="mobile-menu-link {{ 'active' if 'simple_list' in request.endpoint }}" href="{{ url_for('logistics.simple_list_index') }}">
+                        <i class="bi bi-list-check"></i> Лайт Списъци
+                    </a>
+                    <a class="mobile-menu-link {{ 'active' if 'pallet' in request.endpoint }}" href="{{ url_for('logistics.pallet_list') }}">
+                        <i class="bi bi-boxes"></i> Палети
+                    </a>
+                    <a class="mobile-menu-link {{ 'active' if 'transfer' in request.endpoint }}" href="{{ url_for('logistics.transfers') }}">
+                        <i class="bi bi-arrow-left-right"></i> Трансфери
+                    </a>
+                    <div class="border-top my-1"></div>
+                    <a class="mobile-menu-link {{ 'active' if 'stock_orders' in request.endpoint }}" href="{{ url_for('orders.stock_orders_dashboard') }}">
+                        <i class="bi bi-kanban"></i> Задачи Склад
+                    </a>
+                    {% if current_user.is_admin %}
+                    <a class="mobile-menu-link {{ 'active' if 'admin' in request.endpoint }}" href="{{ url_for('admin.panel') }}">
+                        <i class="bi bi-gear"></i> Админ панел
+                    </a>
+                    {% endif %}
+                    <a class="mobile-menu-link {{ 'active' if 'ppp' in request.endpoint }}" href="{{ url_for('orders.ppp_documents') }}">
+                        <i class="bi bi-file-earmark-text"></i> ППП Документи
+                    </a>
+                    <div class="border-top my-1"></div>
+                    <a class="mobile-menu-link {{ 'active' if 'scan_task' in request.endpoint }}" href="{{ url_for('scanning.scan_task_list') }}">
+                        <i class="bi bi-upc-scan"></i> Скенер Задачи
+                    </a>
+                    <a class="mobile-menu-link {{ 'active' if 'import' in request.endpoint }}" href="{{ url_for('products.import_products') }}">
+                        <i class="bi bi-cloud-upload"></i> Импорт
+                    </a>
+                </nav>
+
+                <div class="mt-auto pt-4">
+                    <form method="post" action="{{ url_for('auth.logout') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-light text-danger w-100 fw-bold py-3 rounded-4 border">
+                            <i class="bi bi-box-arrow-right me-2"></i> Изход
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <a class="btn btn-brand-new w-100 py-3 rounded-4 mt-auto" href="{{ url_for('auth.login') }}">Вход</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 3. MAIN CONTENT -->
+    <main class="flex-shrink-0 fade-in flex-grow-1">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="toast-container-custom">
+              {% for category, message in messages %}
+                <div class="toast show toast-modern" role="alert">
+                  <div class="d-flex p-3 align-items-start gap-3">
+                    {% if category == 'success' %}
+                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                    {% elif category == 'danger' %}
+                        <i class="bi bi-x-circle-fill text-danger fs-4"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle-fill text-primary fs-4"></i>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <div class="fw-bold text-dark mb-1">
+                            {{ 'Успех' if category == 'success' else 'Внимание' }}
+                        </div>
+                        <div class="text-muted small lh-sm">{{ message }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="container py-3 py-lg-4 px-3 px-lg-4">
+            {% block content %}{% endblock %}
+        </div>
+        
+        <!-- ВАЖНО: ФИЗИЧЕСКИ РАЗДЕЛИТЕЛ ЗА СКРОЛВАНЕ (Само за мобилни) -->
+        <!-- Това гарантира, че съдържанието никога не се крие зад долното меню -->
+        <div class="d-lg-none" style="height: 120px; width: 100%;"></div>
+    </main>
+
+    <!-- FOOTER (Desktop Only) -->
+    <footer class="main-footer text-center d-none d-lg-block">
+        <div class="container">
+            <p class="mb-0 opacity-50 small">&copy; 2025 GSTROY ERP. Internal System v2.0</p>
+        </div>
+    </footer>
+
+    <!-- 4. MOBILE BOTTOM NAVIGATION -->
+    {% if current_user %}
+    
+    <!-- Бутон Сканиране -->
+    <div class="fab-scan-wrapper d-lg-none">
+        <a href="{{ url_for('scanning.scan_task_list') }}" class="fab-scan">
+            <i class="bi bi-upc-scan"></i>
+        </a>
+    </div>
+
+    <nav class="mobile-bottom-nav d-lg-none">
+        <a href="{{ url_for('main.index') }}" class="nav-item-mobile {{ 'active' if request.endpoint == 'main.index' }}">
+            <i class="bi bi-house-door{{ '-fill' if request.endpoint == 'main.index' }}"></i>
+            <span>Начало</span>
+        </a>
+        <a href="{{ url_for('orders.stock_orders_assigned') }}" class="nav-item-mobile {{ 'active' if 'stock_orders_assigned' in request.endpoint }}">
+            <i class="bi bi-check-circle{{ '-fill' if 'stock_orders_assigned' in request.endpoint }}"></i>
+            <span>Задачи</span>
+        </a>
+        
+        <!-- Място за бутона -->
+        <div class="nav-spacer"></div>
+        
+        <a href="{{ url_for('logistics.pallet_list') }}" class="nav-item-mobile {{ 'active' if 'pallet' in request.endpoint }}">
+            <i class="bi bi-box-seam{{ '-fill' if 'pallet' in request.endpoint }}"></i>
+            <span>Палети</span>
+        </a>
+        <a href="{{ url_for('logistics.simple_list_index') }}" class="nav-item-mobile {{ 'active' if 'simple_list' in request.endpoint }}">
+            <i class="bi bi-list-task"></i>
+            <span>Списъци</span>
+        </a>
+    </nav>
+    {% endif %}
+
+    <!-- 5. UTILS -->
+    <div class="modal fade" id="jsonModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="jsonModalTitle">Data</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="bg-light p-3 rounded-3 border overflow-auto" style="max-height: 60vh;">
+                <pre class="m-0 small text-dark font-monospace" id="jsonModalBody"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const appCsrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+      document.addEventListener('DOMContentLoaded', () => {
+         document.querySelectorAll('.toast').forEach(t => {
+             setTimeout(() => bootstrap.Toast.getOrCreateInstance(t).hide(), 4000);
+         });
+      });
+
+      document.addEventListener('click', function (e) {
+        const trigger = e.target.closest('[data-json-endpoint]');
+        if (!trigger) return;
+        e.preventDefault();
+        
+        const modalEl = document.getElementById('jsonModal');
+        const bodyEl = modalEl.querySelector('#jsonModalBody');
+        document.getElementById('jsonModalTitle').textContent = trigger.getAttribute('data-json-title') || 'Data';
+        bodyEl.textContent = 'Loading...';
+        new bootstrap.Modal(modalEl).show();
+
+        fetch(trigger.getAttribute('data-json-endpoint'), {
+            headers: { 'X-CSRFToken': appCsrfToken }
+        }).then(r => r.json()).then(data => {
+            bodyEl.textContent = JSON.stringify(data, null, 2);
+        }).catch(err => bodyEl.textContent = 'Error: ' + err);
+      });
+
+      (function() {
+        document.querySelectorAll('form').forEach(f => {
+            if(!f.querySelector('[name="csrf_token"]')) {
+                const i = document.createElement('input');
+                i.type='hidden'; i.name='csrf_token'; i.value=appCsrfToken;
+                f.appendChild(i);
+            }
+        });
+        const origFetch = window.fetch;
+        window.fetch = function(input, init) {
+            const opts = init || {};
+            opts.headers = opts.headers || {};
+            if (opts.headers instanceof Headers) opts.headers.append('X-CSRFToken', appCsrfToken);
+            else opts.headers['X-CSRFToken'] = appCsrfToken;
+            return origFetch(input, opts);
+        };
+      })();
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

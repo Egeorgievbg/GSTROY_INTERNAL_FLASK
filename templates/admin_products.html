@@ -1,0 +1,310 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Продукти – Админ панел{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* --- BRAND VARIABLES (Reused) --- */
+    :root {
+        --brand-green: #a6cf39;
+        --brand-dark: #0f172a;
+        --shadow-card: 0 10px 30px -5px rgba(166, 207, 57, 0.15);
+    }
+
+    /* 1. HERO (Dark Mode) */
+    .admin-brand-hero {
+        background: linear-gradient(135deg, var(--brand-dark) 0%, #1e293b 100%);
+        border-radius: 24px;
+        padding: 2.5rem 3rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .admin-brand-hero::before {
+        content: ''; position: absolute; top: -50%; left: -10%; width: 500px; height: 500px;
+        background: radial-gradient(circle, rgba(166, 207, 57, 0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    /* Stats inside Hero */
+    .hero-stat-box {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 0.8rem 1.5rem;
+        text-align: center;
+        min-width: 120px;
+    }
+    .hs-val { font-size: 1.8rem; font-weight: 800; line-height: 1; color: var(--brand-green); }
+    .hs-lbl { font-size: 0.65rem; text-transform: uppercase; color: #cbd5e1; font-weight: 700; margin-top: 4px; }
+
+    /* 2. QUICK ADD BAR (Fast Track) */
+    .quick-add-card {
+        background: #fff;
+        border-left: 4px solid var(--brand-green); /* Green Accent */
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    .quick-lbl {
+        font-size: 0.7rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 0.4rem;
+    }
+
+    /* 3. FILTERS (Toolbar) */
+    .catalog-toolbar {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* 4. TABLE STYLES */
+    .prod-row td { vertical-align: middle; padding: 1rem 1rem; }
+    .prod-row:hover td { background-color: #f8fafc; }
+    
+    .prod-thumb {
+        width: 42px; height: 42px;
+        background: #f1f5f9; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: #94a3b8; font-size: 1.2rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .code-font { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #64748b; font-size: 0.85rem; }
+    
+    .badge-pill {
+        padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    }
+    .bg-active { background: #dcfce7; color: #166534; }
+    .bg-inactive { background: #f1f5f9; color: #64748b; }
+
+    .price-tag { font-weight: 800; color: var(--brand-dark); font-size: 0.95rem; }
+    
+    /* Inputs Override */
+    .input-aero {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+        padding: 0.6rem 0.8rem; font-size: 0.9rem; width: 100%;
+        transition: all 0.2s;
+    }
+    .input-aero:focus { border-color: var(--brand-green); box-shadow: 0 0 0 3px rgba(166, 207, 57, 0.1); outline: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 1600px;">
+
+    <!-- 1. HERO SECTION -->
+    <div class="admin-brand-hero fade-in">
+        <div>
+            <span style="font-size: 0.7rem; text-transform: uppercase; color: var(--brand-green); letter-spacing: 2px; font-weight: 800;">
+                <i class="fas fa-boxes me-1"></i> Каталог
+            </span>
+            <h1 class="fw-bold m-0 mt-1">Продукти</h1>
+            <p class="text-white-50 mt-2 mb-0" style="max-width: 500px;">
+                Централизирано управление на артикули. Добавяй, редактирай и следи наличностите.
+            </p>
+        </div>
+        
+        <!-- Hero Stats -->
+        <div class="d-flex gap-3">
+            <div class="hero-stat-box">
+                <div class="hs-val">{{ stats.products_count }}</div>
+                <div class="hs-lbl">Артикули</div>
+            </div>
+            <div class="hero-stat-box">
+                <div class="hs-val text-white">{{ stats.users_count }}</div>
+                <div class="hs-lbl">Потребители</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. QUICK ADD (Fast Entry) -->
+    <div class="quick-add-card fade-in-item" style="animation-delay: 0.1s;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold m-0"><i class="fas fa-bolt text-warning me-2"></i>Бързо добавяне</h5>
+            <span class="badge bg-light text-dark border">Нов артикул</span>
+        </div>
+        
+        <form class="row g-3 align-items-end" method="post" action="{{ url_for('admin.create_product') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="col-md-2">
+                <label class="quick-lbl">Код (Item No)</label>
+                <input class="input-aero font-monospace" name="item_number" required placeholder="напр. 102030">
+            </div>
+            <div class="col-md-4">
+                <label class="quick-lbl">Име на продукт</label>
+                <input class="input-aero" name="name" required placeholder="Ламинат Дъб Натурален...">
+            </div>
+            <div class="col-md-3">
+                <label class="quick-lbl">Марка</label>
+                <input class="input-aero" name="brand" placeholder="Kronospan">
+            </div>
+            <div class="col-md-2">
+                <label class="quick-lbl">Цена (лв)</label>
+                <input class="input-aero" name="price_unit_1" placeholder="0.00">
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-brand-new w-100" type="submit">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 3. FILTER TOOLBAR -->
+    <div class="catalog-toolbar fade-in-item" style="animation-delay: 0.2s;">
+        <form class="row g-3 align-items-end" method="get">
+            <div class="col-12 col-md-3">
+                <label class="quick-lbl">Търсене</label>
+                <div class="position-relative">
+                    <input class="input-aero" name="search" value="{{ search }}" style="padding-left: 2.2rem;" placeholder="Търси по код, име...">
+                    <i class="fas fa-search position-absolute text-muted" style="left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.9rem;"></i>
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="quick-lbl">Категория</label>
+                <select class="input-aero" name="category">
+                    <option value="">Всички</option>
+                    {% for option in categories %}
+                        <option value="{{ option }}" {% if option == category %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="quick-lbl">Марка</label>
+                <select class="input-aero" name="brand">
+                    <option value="">Всички</option>
+                    {% for option in brands %}
+                        <option value="{{ option }}" {% if option == brand %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="quick-lbl">Статус</label>
+                <select class="input-aero" name="status">
+                    <option value="all" {% if status == 'all' %}selected{% endif %}>Всички</option>
+                    <option value="active" {% if status == 'active' %}selected{% endif %}>Активни</option>
+                    <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Архив</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-1">
+                <button class="btn btn-dark w-100" style="border-radius: 10px;" type="submit">Filter</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 4. DATA TABLE -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden fade-in-item" style="animation-delay: 0.3s;">
+        <div class="card-header bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
+            <div>
+                <span class="fw-bold text-dark">Резултати</span>
+                <span class="text-muted small ms-2">({{ total }} намерени)</span>
+            </div>
+            <div class="small text-muted">Страница {{ page }}</div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 text-uppercase text-muted small fw-bold py-3">Артикул</th>
+                        <th class="text-uppercase text-muted small fw-bold">Детайли</th>
+                        <th class="text-uppercase text-muted small fw-bold">Цена</th>
+                        <th class="text-uppercase text-muted small fw-bold">Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr class="prod-row border-bottom">
+                        <!-- Product Info -->
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="prod-thumb">
+                                    <i class="fas fa-cube"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ product.name }}</div>
+                                    <div class="code-font"><i class="fas fa-barcode me-1 text-muted"></i>{{ product.item_number }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Brand/Cat -->
+                        <td>
+                            <div class="d-flex flex-column gap-1 align-items-start">
+                                {% if product.brand %}
+                                    <span class="badge bg-light text-dark border">{{ product.brand }}</span>
+                                {% endif %}
+                                <span class="text-muted small">{{ product.primary_group or product.category or '—' }}</span>
+                            </div>
+                        </td>
+
+                        <!-- Price -->
+                        <td>
+                            {% if product.price_unit_1 %}
+                                <span class="price-tag">{{ product.price_unit_1 }} <small class="fw-normal text-muted">лв</small></span>
+                            {% else %}
+                                <span class="text-muted small">–</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Status -->
+                        <td>
+                            {% if product.is_active %}
+                                <span class="badge-pill bg-active"><i class="fas fa-check-circle me-1"></i> Активен</span>
+                            {% else %}
+                                <span class="badge-pill bg-inactive">Архив</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Action -->
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('admin.product_detail', product_id=product.id) }}" class="btn btn-sm btn-light border text-muted">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <div class="text-muted opacity-50 mb-2"><i class="fas fa-box-open fa-3x"></i></div>
+                            <h6 class="fw-bold text-muted">Няма намерени артикули</h6>
+                            <p class="small text-muted">Опитай да промениш филтрите.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination footer -->
+        <div class="card-footer bg-white border-top p-3 d-flex justify-content-center">
+            <nav>
+                <ul class="pagination pagination-sm mb-0 gap-2">
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link rounded-2 border-0 bg-light" href="{{ url_for('admin.products', page=page-1, search=search, category=category, brand=brand, status=status) }}">&laquo;</a>
+                    </li>
+                    <li class="page-item active">
+                        <span class="page-link rounded-2 border-0 bg-dark">{{ page }}</span>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link rounded-2 border-0 bg-light text-dark" href="{{ url_for('admin.products', page=page+1, search=search, category=category, brand=brand, status=status) }}">&raquo;</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}

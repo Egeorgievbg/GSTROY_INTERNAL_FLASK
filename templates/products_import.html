@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Импорт на продукти{% endblock %}
+{% block content %}
+<h1 class="mb-3">Импорт/експорт на продуктови профили</h1>
+<p class="text-muted">Тази страница е достъпна само за администратор. CSV файлът трябва да съдържа всички колони, описани по-долу. Разделител може да е запетая, точка и запетая или табулация.</p>
+
+<div class="alert alert-info">
+  Препоръчителна структура: <strong>UTF-8</strong> с заглавен ред. Ако полето <em>Снимка</em> липсва, се използва стандартна картинка.
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card p-4 shadow-sm mb-4">
+  <div class="mb-3">
+    <label class="form-label">CSV файл</label>
+    <input type="file" class="form-control" name="file" accept=".csv,.tsv,.txt" required>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i> Импорт</button>
+    <a href="{{ url_for('export_products') }}" class="btn btn-outline-primary"><i class="bi bi-download me-1"></i> Експорт</a>
+    <a href="{{ url_for('products.products') }}" class="btn btn-link">Назад към продукти</a>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="card-header fw-semibold">Колони в CSV файла</div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <ul class="mb-0 list-unstyled">
+          <li>Номенклатурен номер</li>
+          <li>Наименование</li>
+          <li>Марка</li>
+          <li>Производител</li>
+          <li>Основна група / Подгрупи</li>
+          <li>Мерна единица 1 / 2 + съотношение</li>
+          <li>Цени (видима, промо, по МЕ2)</li>
+          <li>Флагове (Промо, Акцент, Извънгабаритен ...)</li>
+        </ul>
+      </div>
+      <div class="col-md-6">
+        <ul class="mb-0 list-unstyled">
+          <li>Кратко и дълго описание</li>
+          <li>Meta Title / Meta Description</li>
+          <li>Снимка</li>
+          <li>Баркод, локация, Versus ID</li>
+          <li>Опции и вариации</li>
+          <li>Категории Facebook / Google</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

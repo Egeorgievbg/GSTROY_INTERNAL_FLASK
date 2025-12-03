@@ -1,0 +1,213 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ product_list.title }} | Детайли{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}
+
+{% block content %}
+
+<!-- 1. HEADER / COMMAND CENTER -->
+<div class="detail-header fade-in">
+    <div class="row g-4 align-items-start">
+        
+        <!-- Left: Meta & Title -->
+        <div class="col-lg-8">
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                <span class="badge-status status-active">
+                    <div class="status-dot"></div> Активен
+                </span>
+                <span class="font-monospace bg-light text-dark px-2 py-1 rounded border border-light small fw-bold">
+                    {{ product_list.code }}
+                </span>
+                <span class="text-muted small">
+                    <i class="bi bi-clock me-1"></i> {{ product_list.created_at.strftime('%d.%m.%Y %H:%M') }}
+                </span>
+            </div>
+            
+            <h1 class="fw-bold text-dark mb-1 lh-sm">{{ product_list.title }}</h1>
+            
+            <div class="route-visual-responsive">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-white p-2 rounded-circle shadow-sm text-secondary"><i class="bi bi-building-fill"></i></div>
+                    <div>
+                        <div class="text-xs text-muted text-uppercase fw-bold">Склад</div>
+                        <div class="wh-point">{{ product_list.current_warehouse.name }}</div>
+                    </div>
+                </div>
+                
+                <div class="d-none d-lg-block border-start h-100 mx-2 route-separator" style="height: 30px;"></div>
+                
+                <div class="d-flex align-items-center gap-3 ps-lg-3 border-start-lg">
+                     <div class="bg-white p-2 rounded-circle shadow-sm text-danger"><i class="bi bi-geo-alt-fill"></i></div>
+                     <div>
+                         <div class="text-xs text-muted text-uppercase fw-bold">Локация</div>
+                         <div class="fw-bold text-dark">
+                            {% if product_list.storage_location %}
+                                {{ product_list.storage_location }}
+                            {% else %}
+                                <span class="text-muted fw-normal fst-italic">Няма</span>
+                            {% endif %}
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Actions -->
+        <div class="col-lg-4 d-flex flex-column align-items-lg-end gap-3">
+            <div class="d-flex gap-2 w-100 justify-content-lg-end">
+                <a href="{{ url_for('logistics.simple_list_index') }}" class="btn btn-light border btn-lg px-3" title="Назад">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <a href="{{ url_for('logistics.pallet_label', list_id=product_list.id) }}" target="_blank" class="btn btn-light border btn-lg px-3" title="Принтирай">
+                    <i class="bi bi-printer"></i>
+                </a>
+                <a href="{{ url_for('logistics.simple_list_edit', list_id=product_list.id) }}" class="btn btn-brand-new btn-lg flex-grow-1 flex-lg-grow-0 d-flex align-items-center justify-content-center gap-2 shadow-lg">
+                    <i class="bi bi-qr-code-scan"></i> <span class="d-none d-sm-inline">Редакция</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. METRICS DASHBOARD (3 Columns now, better fill) -->
+<div class="row g-3 mb-5 fade-in" style="animation-delay: 0.1s;">
+    <!-- QR -->
+    <div class="col-12 col-lg-4 order-lg-first">
+        <div class="qr-panel">
+            <img src="{{ url_for('logistics.pallet_qr', list_id=product_list.id) }}" alt="QR" class="img-fluid" style="max-height: 100px; mix-blend-mode: multiply;">
+            <div class="mt-2 small fw-bold text-muted font-monospace" style="font-size: 0.7rem;">{{ product_list.code }}</div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="col-6 col-lg-4">
+        <div class="metrics-card">
+            <div class="metric-icon-lg"><i class="bi bi-list-ul"></i></div>
+            <div class="metric-label">Артикули</div>
+            <div>
+                <span class="metric-value">{{ totals.line_count }}</span>
+                <span class="metric-unit">вида</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4">
+        <div class="metrics-card">
+            <div class="metric-icon-lg text-primary" style="color: #3b82f6;"><i class="bi bi-box-seam-fill"></i></div>
+            <div class="metric-label">Бройки</div>
+            <div>
+                <span class="metric-value">{{ "%.0f"|format(totals.total_pieces) }}</span>
+                <span class="metric-unit">бр.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. CONTENT & SIDEBAR -->
+<div class="row g-4 fade-in" style="animation-delay: 0.2s;">
+    
+    <!-- Products Table -->
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center justify-content-between mb-3 px-1">
+            <h5 class="fw-bold text-dark mb-0">Съдържание на списъка</h5>
+        </div>
+        
+        <div class="modern-table-card">
+            <div class="table-responsive">
+                <table class="table table-modern mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4" style="width: 5%;">#</th>
+                            <th style="width: 65%;">Продукт</th>
+                            <th class="text-end pe-4" style="width: 30%;">Количество</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in product_list.items %}
+                        <tr class="table-row-link" onclick="window.location='{{ url_for('products.product_detail', product_id=item.product.id) }}'">
+                            <td class="ps-4 text-muted fw-bold small">{{ loop.index }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <!-- Thumbnail (Optional) -->
+                                    <div class="bg-light rounded border d-flex align-items-center justify-content-center d-none d-sm-flex" style="width: 40px; height: 40px;">
+                                        <i class="bi bi-image text-black-50"></i>
+                                    </div>
+                                    
+                                    <div>
+                                        <div class="fw-bold text-dark prod-name transition-colors">{{ item.product.name }}</div>
+                                        <div class="d-flex gap-2 small mt-1">
+                                            <span class="badge bg-light text-secondary border fw-normal font-monospace">{{ item.product.item_number }}</span>
+                                            {% if item.product.brand %}
+                                                <span class="text-muted border-start ps-2">{{ item.product.brand }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                    <span class="qty-pill">{{ "%.0f"|format(item.quantity) }}</span>
+                                    <span class="small text-muted fw-bold text-uppercase">{{ item.unit }}</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center py-5">
+                                <div class="d-flex flex-column align-items-center opacity-50">
+                                    <i class="bi bi-basket3 fs-1 mb-3"></i>
+                                    <h6 class="fw-bold">Списъкът е празен</h6>
+                                    <p class="small">Използвайте бутона "Сканирай", за да добавите продукти.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Info -->
+    <div class="col-lg-4">
+        <div class="sticky-top" style="top: 100px; z-index: 1;">
+            <h5 class="fw-bold text-dark mb-3 px-1">Детайли</h5>
+            
+            <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="bg-light rounded-circle p-3 text-muted"><i class="bi bi-person-fill fs-5"></i></div>
+                        <div>
+                            <div class="text-xs text-muted text-uppercase fw-bold">Създател</div>
+                            <div class="fw-bold text-dark">{{ product_list.created_by.full_name if product_list.created_by else 'Система' }}</div>
+                        </div>
+                    </div>
+                    
+                    <hr class="border-light my-3">
+                    
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-xs text-muted text-uppercase fw-bold mb-1">Създаден</div>
+                            <div class="small fw-bold text-dark font-monospace">{{ product_list.created_at.strftime('%d.%m %H:%M') }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-xs text-muted text-uppercase fw-bold mb-1">Обновен</div>
+                            <div class="small fw-bold text-dark font-monospace">{{ product_list.updated_at.strftime('%d.%m %H:%M') }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Context Alert -->
+            <div class="alert alert-light border shadow-sm rounded-4 d-flex gap-3 align-items-start">
+                <i class="bi bi-info-circle-fill text-primary mt-1"></i>
+                <div class="small text-muted" style="line-height: 1.5;">
+                    Този списък е <strong>"Лайт"</strong>. Той служи за бърза инвентаризация или проверка.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

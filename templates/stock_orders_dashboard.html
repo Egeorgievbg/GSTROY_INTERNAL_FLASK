@@ -1,0 +1,109 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | GSTROY{% endblock %}
+
+{% block content %}
+
+<!-- HEADER AREA -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4 fade-in">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <h1 class="h3 fw-bold text-dark mb-0">{{ page_title }}</h1>
+        <!-- Total Count Badge -->
+        <span class="badge bg-dark text-white rounded-pill border shadow-sm font-monospace">
+            {{ status_counts.values()|sum }}
+        </span>
+        {% if auto_refresh %}
+        <span class="badge bg-white text-success border shadow-sm d-flex align-items-center gap-2 px-2 py-1 rounded-pill small ms-2">
+            <span class="spinner-grow spinner-grow-sm text-success" role="status" aria-hidden="true"></span> LIVE
+        </span>
+        {% endif %}
+    </div>
+    <p class="text-muted mb-0">Следете статуса на отворените стокови поръчки от Versus ERP в реално време.</p>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <!-- View Toggle -->
+    <div class="bg-white p-1 rounded-3 shadow-sm border d-flex">
+      <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'cards' else 'text-muted' }}" href="{{ cards_url }}" title="Карти">
+        <i class="bi bi-grid-fill"></i>
+      </a>
+      <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'table' else 'text-muted' }}" href="{{ table_url }}" title="Списък">
+        <i class="bi bi-list-ul"></i>
+      </a>
+    </div>
+    
+    <!-- Refresh -->
+    <a class="btn btn-white border bg-white shadow-sm text-muted fw-bold" href="{{ url_for('orders.stock_orders_dashboard') }}" title="Обнови">
+        <i class="bi bi-arrow-clockwise"></i>
+    </a>
+  </div>
+</div>
+
+<!-- 1. KPI / STATUS NAVIGATION (Full Width) -->
+<div class="kpi-dashboard-grid fade-in" style="animation-delay: 0.1s;">
+    {% for status in status_order %}
+      {% set count = status_counts.get(status, 0) %}
+      <a href="{{ url_for('orders.stock_orders_dashboard', status=status, type=type_filter, view=view_mode) }}" 
+         class="kpi-card {{ 'active' if status == status_filter else '' }} {{ 'opacity-50 grayscale' if count == 0 and status != status_filter else '' }}"
+         data-status="{{ status }}">
+          <div class="kpi-count">{{ count }}</div>
+          <div class="kpi-label">{{ status_labels.get(status, status) }}</div>
+      </a>
+    {% endfor %}
+</div>
+
+<!-- 2. FILTER TOOLBAR -->
+{% if show_filters %}
+<div class="filter-bar d-flex flex-wrap align-items-center gap-3 fade-in" style="animation-delay: 0.15s;">
+    <div class="d-flex align-items-center gap-2 text-muted border-end pe-3 me-2">
+        <i class="bi bi-funnel-fill"></i>
+        <span class="small fw-bold text-uppercase">ФИЛТРИ</span>
+    </div>
+    
+    <form class="d-flex flex-wrap gap-2 flex-grow-1 align-items-center w-100">
+        <select class="form-select bg-light border-0 shadow-sm" style="width: auto; min-width: 150px;" name="type" onchange="this.form.submit()">
+          <option value="">Всички типове</option>
+          {% for type in type_order %}
+            <option value="{{ type }}" {% if type == type_filter %}selected{% endif %}>{{ type_labels.get(type, type) }}</option>
+          {% endfor %}
+        </select>
+        
+        <select class="form-select bg-light border-0 shadow-sm" style="width: auto; min-width: 150px;" name="status" onchange="this.form.submit()">
+          <option value="">Всички статуси</option>
+          {% for status in status_order %}
+            <option value="{{ status }}" {% if status == status_filter %}selected{% endif %}>{{ status_labels.get(status, status) }}</option>
+          {% endfor %}
+        </select>
+
+        <input type="hidden" name="view" value="{{ view_mode }}">
+        
+        <div class="ms-auto d-flex align-items-center gap-2">
+             <a class="btn btn-link text-muted text-decoration-none small" href="{{ url_for('orders.stock_orders_dashboard') }}">
+                Изчисти
+             </a>
+             <button class="btn btn-dark px-4 rounded-pill shadow-sm" type="submit">Приложи</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- 3. ORDERS CONTENT -->
+<div class="fade-in" style="animation-delay: 0.2s;">
+    {% include "_stock_order_cards.html" %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  {% if auto_refresh %}
+    <script>
+      setTimeout(function () { 
+          if(!document.querySelector(':focus')) {
+            window.location.reload(); 
+          }
+      }, 60000);
+    </script>
+  {% endif %}
+{% endblock %}

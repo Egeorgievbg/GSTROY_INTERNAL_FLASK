@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Scan Задачи | GSTROY{% endblock %}
+
+{% block content %}
+<style>
+    /* 
+       SCAN TASKS STYLES 
+    */
+
+    /* 1. Task Card */
+    .task-card {
+        background: #fff;
+        border: 1px solid rgba(0,0,0,0.04);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .task-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.06);
+        border-color: rgba(166, 207, 57, 0.3);
+    }
+
+    /* 2. Header inside card */
+    .task-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid #f9fafb;
+        display: flex; justify-content: space-between; align-items: flex-start;
+    }
+
+    /* 3. Progress Bar */
+    .progress-custom {
+        height: 6px;
+        background-color: #f1f5f9;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    .progress-bar-brand {
+        background: linear-gradient(90deg, var(--brand-green) 0%, var(--brand-green-dark) 100%);
+        border-radius: 10px;
+    }
+
+    /* 4. Type Icon Box */
+    .type-icon {
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem;
+        margin-right: 1rem;
+    }
+    .type-inventory { background: #e0f2fe; color: #0284c7; } /* Blue */
+    .type-receive   { background: #dcfce7; color: #16a34a; } /* Green */
+    .type-shipping  { background: #ffedd5; color: #ea580c; } /* Orange */
+    .type-default   { background: #f3f4f6; color: #4b5563; } /* Gray */
+
+    /* 5. Status Badges */
+    .badge-status { 
+        padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; 
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .status-open { background: #ecfccb; color: #3f6212; }
+    .status-closed { background: #f3f4f6; color: #6b7280; }
+
+    /* 6. Table */
+    .table-clean th {
+        background: #f9fafb; color: #6b7280; font-weight: 700; font-size: 0.8rem;
+        text-transform: uppercase; border-bottom: 2px solid #e5e7eb; padding: 1rem;
+    }
+    .table-clean td { padding: 1rem; vertical-align: middle; }
+    
+    .table-progress { width: 120px; height: 6px; background: #f1f5f9; border-radius: 4px; overflow:hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .table-progress-bar { height: 100%; background: var(--brand-green); }
+</style>
+
+<!-- HEADER -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-5 fade-in">
+  <div>
+    <h1 class="h3 fw-bold text-dark mb-1">Scan Задачи</h1>
+    <p class="text-muted mb-0">Управление на процеси: Инвентаризация, Прием и Експедиция.</p>
+  </div>
+  
+  <div class="d-flex align-items-center gap-3">
+    <!-- View Switcher -->
+    <div class="bg-white p-1 rounded-3 shadow-sm border d-flex">
+      <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'cards' else 'text-muted' }}" href="{{ cards_url }}" title="Карти">
+        <i class="bi bi-grid-fill"></i>
+      </a>
+      <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'table' else 'text-muted' }}" href="{{ table_url }}" title="Таблица">
+        <i class="bi bi-list-ul"></i>
+      </a>
+    </div>
+
+    <!-- New Task Button -->
+    <a href="{{ url_for('scanning.scan_task_new') }}" class="btn btn-brand-new d-flex align-items-center gap-2">
+      <i class="bi bi-plus-lg"></i>
+      <span>Нова задача</span>
+    </a>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="fade-in" style="animation-delay: 0.1s;">
+{% if view_mode == 'cards' %}
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    {% for task in tasks %}
+      {% set percent = (task.completed_items / task.total_items * 100)|round|int if task.total_items > 0 else 0 %}
+      
+      <!-- Determine Icon & Color based on Type -->
+      {% set type_class = 'type-default' %}
+      {% set type_icon = 'bi-list-check' %}
+      
+      {% if 'invent' in task.type|lower %}
+         {% set type_class = 'type-inventory' %}
+         {% set type_icon = 'bi-clipboard-data' %}
+      {% elif 'receiv' in task.type|lower or 'priem' in task.type|lower %}
+         {% set type_class = 'type-receive' %}
+         {% set type_icon = 'bi-box-arrow-in-down' %}
+      {% elif 'ship' in task.type|lower or 'exped' in task.type|lower %}
+         {% set type_class = 'type-shipping' %}
+         {% set type_icon = 'bi-box-arrow-right' %}
+      {% endif %}
+
+      <div class="col">
+        <div class="task-card">
+          <!-- Header -->
+          <div class="task-header">
+             <div class="d-flex align-items-center">
+                 <div class="type-icon {{ type_class }}">
+                     <i class="bi {{ type_icon }}"></i>
+                 </div>
+                 <div>
+                     <h5 class="fw-bold text-dark mb-0 text-truncate" style="max-width: 180px;" title="{{ task.name }}">{{ task.name }}</h5>
+                     <div class="text-muted small font-monospace">ID: {{ task.id }}</div>
+                 </div>
+             </div>
+             <span class="badge-status {{ 'status-closed' if task.status == 'closed' else 'status-open' }}">
+                 {{ task.status }}
+             </span>
+          </div>
+
+          <!-- Body -->
+          <div class="p-4 flex-grow-1 d-flex flex-column">
+            <div class="mb-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-building text-muted"></i>
+                    <span class="fw-medium text-dark">{{ task.warehouse.name if task.warehouse else 'Няма склад' }}</span>
+                </div>
+                <div class="text-muted small ps-4">
+                   {{ task.created_at.strftime('%d.%m.%Y') }} <span class="opacity-50">|</span> {{ task.created_at.strftime('%H:%M') }}
+                </div>
+            </div>
+
+            <div class="mt-auto">
+                <div class="d-flex justify-content-between align-items-end mb-1">
+                    <span class="text-muted small text-uppercase fw-bold">Прогрес</span>
+                    <span class="fw-bold text-dark small">{{ percent }}%</span>
+                </div>
+                <div class="progress-custom">
+                    <div class="progress-bar-brand" style="width: {{ percent }}%;"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-2 small">
+                    <span class="text-muted">{{ task.completed_items }} готови</span>
+                    <span class="text-muted">{{ task.total_items }} общо</span>
+                </div>
+            </div>
+          </div>
+          
+          <!-- Footer Actions -->
+          <div class="d-flex border-top border-light">
+              <a href="{{ url_for('scanning.scan_task_export', task_id=task.id) }}" class="btn btn-link text-muted flex-fill py-3 text-decoration-none border-end" title="Експорт">
+                  <i class="bi bi-file-earmark-arrow-down"></i> CSV
+              </a>
+              <a href="{{ url_for('scanning.scan_task_detail', task_id=task.id) }}" class="btn btn-link text-dark fw-bold flex-fill py-3 text-decoration-none">
+                  Преглед <i class="bi bi-chevron-right small ms-1"></i>
+              </a>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="col-12">
+        <div class="text-center py-5 border border-2 border-dashed rounded-4 bg-white">
+            <i class="bi bi-upc-scan fs-1 text-muted opacity-25 mb-3 d-block"></i>
+            <h5 class="text-muted fw-normal">Няма активни задачи</h5>
+            <p class="small mb-0 text-muted">Създайте нова задача за инвентаризация или прием.</p>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+{% else %}
+  <!-- Table View -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-clean table-hover mb-0">
+        <thead>
+          <tr>
+            <th class="ps-4">Задача</th>
+            <th>Тип</th>
+            <th>Склад</th>
+            <th>Прогрес</th>
+            <th>Статус</th>
+            <th>Създадена</th>
+            <th class="text-end pe-4"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for task in tasks %}
+          {% set percent = (task.completed_items / task.total_items * 100)|round|int if task.total_items > 0 else 0 %}
+          <tr>
+            <td class="ps-4">
+                <div class="fw-bold text-dark">{{ task.name }}</div>
+                <div class="small text-muted font-monospace">ID: {{ task.id }}</div>
+            </td>
+            <td>
+                <span class="badge bg-light text-dark border text-uppercase small">{{ task.type }}</span>
+            </td>
+            <td>{{ task.warehouse.name if task.warehouse else '–' }}</td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="table-progress">
+                        <div class="table-progress-bar" style="width: {{ percent }}%;"></div>
+                    </div>
+                    <span class="small fw-bold text-muted">{{ percent }}%</span>
+                </div>
+                <div class="small text-muted" style="font-size: 0.7rem;">
+                    {{ task.completed_items }} / {{ task.total_items }}
+                </div>
+            </td>
+            <td>
+                <span class="badge-status {{ 'status-closed' if task.status == 'closed' else 'status-open' }}">
+                    {{ task.status }}
+                </span>
+            </td>
+            <td class="text-muted small">
+                {{ task.created_at.strftime('%d.%m.%Y') }}
+            </td>
+            <td class="text-end pe-4">
+              <a href="{{ url_for('scanning.scan_task_export', task_id=task.id) }}" class="btn btn-sm btn-white border shadow-sm text-muted me-1" title="Експорт">
+                  <i class="bi bi-download"></i>
+              </a>
+              <a href="{{ url_for('scanning.scan_task_detail', task_id=task.id) }}" class="btn btn-sm btn-outline-secondary border-0 bg-white shadow-sm">
+                  Детайли
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">Няма задачи.</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+</div>
+{% endblock %}

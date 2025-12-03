@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% import "_competitor_price_rows.html" as competitor_rows %}
+{% block title %}{{ product.name }} | Internal View{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Генериране на баркод
+        let barcodeValue = "{{ product.ean or product.item_number }}";
+        try {
+            JsBarcode("#real-barcode", barcodeValue, {
+                format: "CODE128",
+                lineColor: "#334155",
+                width: 2,
+                height: 50,
+                displayValue: true,
+                fontOptions: "bold",
+                font: "Monospace",
+                background: "transparent",
+                margin: 0
+            });
+        } catch (e) { console.error(e); }
+    });
+
+    function copyPageLink() {
+        navigator.clipboard.writeText(window.location.href);
+        // Тук може да добавиш визуален фийдбек
+    }
+
+    // НОВА ФУНКЦИЯ ЗА СТРЕЛКАТА НА ЦЕНИТЕ
+    function toggleCompetitorIcon(element) {
+        const arrow = element.querySelector('#competitorArrow');
+        if (arrow) {
+            arrow.classList.toggle('rotate-180');
+        }
+    }
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const printBtn = document.getElementById("product-print-btn");
+        const printerSelect = document.getElementById("product-printer-select");
+        const copiesInput = document.getElementById("product-print-copies");
+        const quantityInput = document.getElementById("product-print-quantity");
+        const statusEl = document.getElementById("product-print-status");
+        const defaultPrinterId = {{ product_default_printer_id if product_default_printer_id else "null" }};
+        const productId = {{ product.id }};
+
+        function setStatus(message, isSuccess) {
+            if (!statusEl) {
+                return;
+            }
+            statusEl.textContent = message;
+            statusEl.classList.toggle("text-success", Boolean(isSuccess));
+            statusEl.classList.toggle("text-danger", Boolean(isSuccess) === false);
+        }
+
+        if (!printBtn) {
+            return;
+        }
+
+        const unitInfo = "{{ '%.6f'|format(product.volume_m3 or 0) }} {{ (product.secondary_unit or product.main_unit or 'бр.').upper() }} / {{ '%.0f'|format(product.unit_conversion_ratio or 0) }} {{ (product.main_unit or 'бр.').upper() }}";
+        printBtn.addEventListener("click", function () {
+            const selected = printerSelect?.value;
+            const printerId = selected ? parseInt(selected, 10) : defaultPrinterId;
+            if (!printerId) {
+                setStatus("Изберете принтер.", false);
+                return;
+            }
+            let copies = parseInt(copiesInput?.value, 10);
+            if (isNaN(copies) || copies < 1) {
+                copies = 1;
+            }
+            let quantity = parseFloat(quantityInput?.value);
+            if (isNaN(quantity) || quantity <= 0) {
+                quantity = 1;
+            }
+            printBtn.disabled = true;
+            setStatus("Изпращам етикета...", true);
+            fetch("/printer-hub/print-product", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        printer_id: printerId,
+                        name: "{{ product.name|e }}",
+                        barcode: "{{ (product.barcode or product.item_number)|e }}",
+                        copies: copies,
+                        quantity: quantity,
+                        unit_info: unitInfo,
+                    }),
+            })
+                .then(async (response) => {
+                    const contentType = response.headers.get("content-type") || "";
+                    let data;
+                    if (contentType.includes("application/json")) {
+                        data = await response.json();
+                    } else {
+                        data = { message: await response.text() };
+                    }
+                    return { ok: response.ok, data };
+                })
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        throw new Error(data.message || "Грешка при отпечатване.");
+                    }
+                    setStatus(data.message || "Етикетът е изпратен.", true);
+                })
+                .catch((err) => {
+                    console.error(err);
+                    setStatus(err.message || "Грешка при изпращане към принтера.", false);
+                })
+                .finally(() => {
+                    printBtn.disabled = false;
+                });
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+
+
+<!-- BREADCRUMBS & HEADER -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3 fade-in">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-0">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}" class="text-muted">Начало</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('products.products') }}" class="text-muted">Каталог</a></li>
+            <li class="breadcrumb-item active fw-bold text-dark">{{ product.item_number }}</li>
+        </ol>
+    </nav>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-white text-muted border rounded-pill px-3 shadow-sm">
+            <i class="bi bi-database-check me-1 text-success"></i> Internal v2.0
+        </span>
+    </div>
+</div>
+
+<!-- HEADER TITLE ROW -->
+<div class="row mb-4 fade-in">
+    <div class="col-12">
+        <div class="d-flex align-items-start gap-2">
+            {% if product.is_active %}
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 mt-1">АКТИВЕН</span>
+            {% else %}
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border mt-1">НЕАКТИВЕН</span>
+            {% endif %}
+            <div>
+                <h1 class="h4 fw-bold text-dark mb-1 lh-sm">{{ product.name }}</h1>
+                <div class="d-flex flex-wrap gap-2 text-muted small mt-2">
+                    <span class="bg-white px-2 py-1 rounded border"><i class="bi bi-upc me-1"></i>{{ product.item_number }}</span>
+                    <span class="bg-white px-2 py-1 rounded border"><i class="bi bi-building me-1"></i>{{ product.manufacturer_name or 'General' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN CONTENT GRID -->
+<div class="row g-4 pb-5"> 
+
+    <!-- RIGHT COLUMN (Desktop: Right / Mobile: FIRST) -->
+    <div class="col-lg-5 order-1 order-lg-2 fade-in" style="animation-delay: 0.1s;">
+        
+        <!-- 1. IMAGE & BARCODE -->
+        <div class="modern-card mb-3 p-4 text-center position-relative bg-white">
+            {% set img_src = product.image_url or 'images/no_image.png' %}
+            {% if not img_src.startswith('http') %}{% set img_src = url_for('static', filename=img_src.lstrip('/')) %}{% endif %}
+            
+            <div class="ratio ratio-4x3 mb-3">
+                <img src="{{ img_src }}" class="object-fit-contain rounded-3" alt="Product">
+            </div>
+            
+            <div class="mt-3 pt-3 border-top border-light d-flex justify-content-center">
+                <svg id="real-barcode" style="width: 100%; max-width: 250px;"></svg>
+            </div>
+        </div>
+
+        <!-- 2. PRICING CARD -->
+        <div class="modern-card mb-3 p-4 bg-light border-0">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small text-uppercase">Стандартна Цена</span>
+                <span class="fw-bold text-decoration-line-through text-muted">{{ "%.2f"|format(product.price_unit_1 or 0) }} лв.</span>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+                <span class="fw-bold text-dark">Промо / Клиент</span>
+                <span class="fs-1 fw-bold text-danger font-monospace lh-1">
+                    {{ "%.2f"|format(product.promo_price_unit_1 or product.price_unit_1 or 0) }} 
+                    <small class="fs-6 text-muted fw-normal">лв.</small>
+                </span>
+            </div>
+            
+            <div class="row g-2 text-center">
+                <div class="col-4">
+                    <div class="bg-white p-2 rounded border">
+                        <div class="text-xs text-muted text-uppercase">Тегло</div>
+                        <div class="fw-bold text-dark small">{{ product.weight_kg or '-' }} kg</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-white p-2 rounded border">
+                        <div class="text-xs text-muted text-uppercase">Обем</div>
+                        <div class="fw-bold text-dark small">{{ product.volume_m3 or '-' }} m³</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-white p-2 rounded border">
+                        <div class="text-xs text-muted text-uppercase">Мярка</div>
+                        <div class="fw-bold text-dark small">{{ product.main_unit or 'бр.' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. SMART ACTIONS -->
+        <div class="smart-actions-grid mb-3">
+            <button class="smart-btn" onclick="copyPageLink()">
+                <div class="smart-icon bg-blue-soft text-primary"><i class="bi bi-link-45deg"></i></div>
+                <span>Копирай<br>Линк</span>
+            </button>
+            <button class="smart-btn">
+                <div class="smart-icon bg-green-soft text-success"><i class="bi bi-tag-fill"></i></div>
+                <span>Клиентска<br>Цена</span>
+            </button>
+            <button class="smart-btn">
+                <div class="smart-icon bg-purple-soft text-purple"><i class="bi bi-printer-fill"></i></div>
+                <span>Етикет<br>За Рафт</span>
+            </button>
+            <button class="smart-btn">
+                <div class="smart-icon bg-red-soft text-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                <span>Сигнал<br>Грешка</span>
+            </button>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex flex-column flex-md-row flex-wrap gap-3">
+                    <div class="flex-grow-1">
+                        <label class="form-label small text-uppercase text-muted mb-1">Принтер</label>
+                        <select class="form-select form-select-sm" id="product-printer-select">
+                            <option value="">Избери принтер (по-долу има списък с налични)</option>
+                            {% for printer in product_printers %}
+                            <option value="{{ printer.id }}" {% if printer.id == product_default_printer_id %}selected{% endif %}>
+                                {{ printer.name or printer.ip_address }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex-shrink-0" style="min-width: 120px;">
+                        <label class="form-label small text-uppercase text-muted mb-1">Бройки</label>
+                        <input id="product-print-copies" type="number" min="1" class="form-control form-control-sm" value="1">
+                    </div>
+                    <div class="flex-shrink-0" style="min-width: 120px;">
+                        <label class="form-label small text-uppercase text-muted mb-1">Количество</label>
+                        <input id="product-print-quantity" type="number" min="0.01" step="0.01" class="form-control form-control-sm" value="1">
+                    </div>
+                    <div class="d-flex align-items-end">
+                        <button id="product-print-btn" class="btn btn-brand-new">Принтирай етикет</button>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2" id="product-print-status"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LEFT COLUMN (Desktop: Left / Mobile: SECOND) -->
+    <div class="col-lg-7 order-2 order-lg-1 fade-in" style="animation-delay: 0.2s;">
+        
+        <!-- 1. KPI GRID -->
+        <div class="kpi-grid mb-4">
+            <div class="kpi-card kpi-green">
+                <span class="kpi-label"><i class="bi bi-check-circle me-1"></i>Свободно</span>
+                <div class="kpi-value">{{ "%.0f"|format(kpi.free) }}</div> 
+                <div class="small text-muted fw-bold text-uppercase">БРОЙ</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Физическо</span>
+                <div class="kpi-value">{{ "%.0f"|format(kpi.physical) }}</div>
+                <div class="small text-muted">общо</div>
+            </div>
+            <div class="kpi-card kpi-orange">
+                <span class="kpi-label"><i class="bi bi-lock me-1"></i>Запазено</span>
+                <div class="kpi-value">{{ "%.0f"|format(kpi.reserved) }}</div>
+                <div class="small text-muted">клиенти</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label"><i class="bi bi-truck me-1"></i>Доставка</span>
+                <div class="kpi-value text-primary">{{ "%.0f"|format(kpi.incoming) }}</div>
+                <div class="small text-muted">чака</div>
+            </div>
+        </div>
+
+        <!-- 2. COMPETITOR PRICES (NEW COLLAPSIBLE DESIGN) -->
+        <div class="mb-4 fade-in" style="animation-delay: 0.15s;">
+            
+            <!-- HEADER / TRIGGER BUTTON -->
+            <div class="competitor-trigger d-flex justify-content-between align-items-center p-3 p-md-4 bg-white rounded-4 shadow-sm cursor-pointer" 
+                 data-bs-toggle="collapse" 
+                 data-bs-target="#competitorCollapse" 
+                 aria-expanded="false" 
+                 aria-controls="competitorCollapse"
+                 onclick="toggleCompetitorIcon(this)">
+                
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon-box-soft bg-blue-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                        <i class="bi bi-graph-up-arrow fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold text-dark m-0">Конкурентни Цени</h6>
+                        <div class="small text-muted">
+                            {% if competitor_prices %}
+                                Намерени са {{ competitor_prices|length }} оферти
+                            {% else %}
+                                Няма налични данни
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-3">
+                    {% if show_competitor_prices %}
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-2 d-none d-md-inline-block">
+                            Active Feed
+                        </span>
+                    {% endif %}
+                    <i class="bi bi-chevron-down text-muted transition-icon" id="competitorArrow"></i>
+                </div>
+            </div>
+
+            <!-- COLLAPSIBLE CONTENT -->
+            <div class="collapse mt-2" id="competitorCollapse">
+                <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-3">
+                    
+                    {% if show_competitor_prices %}
+                        <!-- SCROLLABLE CONTAINER IF LIST IS LONG -->
+                        <div class="competitor-list-container custom-scrollbar" style="max-height: 400px; overflow-y: auto;">
+                            {{ competitor_rows.competitor_price_rows(competitor_base_price, competitor_prices, "Все още няма данни от Pricemind.") }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3 px-2">
+                            <small class="text-muted fst-italic">
+                                <i class="bi bi-info-circle me-1"></i> Данните се обновяват автоматично през API.
+                            </small>
+                            <a href="#" class="btn btn-sm btn-link text-decoration-none text-muted small">Докладвай грешка</a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-3 text-muted opacity-50"><i class="bi bi-lock-fill fs-1"></i></div>
+                            <h6 class="fw-bold text-muted">Нямате достъп до този модул</h6>
+                            <p class="small text-muted">Свържете се с администратор за права.</p>
+                        </div>
+                    {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+        <!-- END COMPETITOR PRICES -->
+
+        <!-- 3. WAREHOUSE TABLE -->
+        <div class="wh-table-container mb-4">
+            <div class="p-3 border-bottom bg-white">
+                <h6 class="fw-bold m-0 text-dark d-flex align-items-center">
+                    <i class="bi bi-buildings-fill text-primary me-2"></i>Наличност по Складове
+                </h6>
+            </div>
+            
+            <div class="d-flex bg-light border-bottom py-2 px-3">
+                <span class="small fw-bold text-muted text-uppercase flex-grow-1">Локация</span>
+                <span class="small fw-bold text-muted text-uppercase">Свободно</span>
+            </div>
+
+            {% for wh in stocks %}
+            <div class="wh-row {{ 'bg-success bg-opacity-10' if wh.active else '' }}">
+                <div class="wh-name">
+                    <div class="wh-dot {{ 'active' if wh.active else '' }}"></div>
+                    {{ wh.name }}
+                    {% if wh.reserved > 0 %}
+                        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.6rem;">ZIP: {{ "%.0f"|format(wh.reserved) }}</span>
+                    {% endif %}
+                </div>
+                <div class="wh-val {{ 'text-muted opacity-50' if not wh.active else '' }}">
+                    {{ "%.0f"|format(wh.free) }}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div class="p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-dark small text-uppercase">Общо Налично</span>
+                    <span class="fw-bold text-success fs-5 font-monospace">{{ "%.0f"|format(kpi.free) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. PRICING HISTORY (Single Instance) -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold m-0 d-flex align-items-center text-dark">
+                    <i class="bi bi-graph-down-arrow text-danger me-2"></i>Последни Доставни Цени
+                </h6>
+                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" style="font-size: 0.65rem;">INTERNAL</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 small align-middle">
+                    <thead class="bg-light text-muted">
+                        <tr>
+                            <th class="ps-3 border-bottom-0">Склад</th>
+                            <th class="text-end border-bottom-0">Доставена цена</th>
+                            <th class="text-end pe-3 border-bottom-0">Дата</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in delivery_log %}
+                        <tr>
+                            <td class="ps-3 fw-bold text-dark">{{ log.warehouse }}</td>
+                            <td class="text-end font-monospace">{{ "%.2f"|format(log.price) }} лв.</td>
+                            <td class="text-end pe-3 text-muted">{{ log.date }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center py-3 text-muted">Няма данни</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. DESCRIPTION & TABS -->
+        <div class="modern-card bg-white p-0 overflow-hidden">
+            <ul class="nav nav-tabs nav-tabs-aero p-3 pb-0 border-bottom-0" id="prodTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="desc-tab" data-bs-toggle="tab" data-bs-target="#desc" type="button">Описание</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button">История</button>
+                </li>
+            </ul>
+            <div class="tab-content p-4 pt-2" id="prodTabContent">
+                <div class="tab-pane fade show active" id="desc">
+                    <div class="text-muted small" style="line-height: 1.6;">
+                        <p><strong>Кратко:</strong> {{ product.name }}</p>
+                        <hr class="border-light">
+                        <p class="fst-italic">Няма въведено пълно описание за този продукт.</p>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="logs">
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-clock-history fs-4 mb-2 d-block opacity-50"></i>
+                        Няма скорошни движения.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

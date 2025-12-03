@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Складове{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 1300px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <span class="text-uppercase fw-bold text-muted small" style="letter-spacing: 0.3em;">Админ</span>
+            <h1 class="fw-bold mb-1">Управление на складове</h1>
+            <p class="text-muted small mb-0">Добавяй или редактирай търговските обекти и техните локации.</p>
+        </div>
+        <a href="{{ url_for('admin.panel') }}" class="btn btn-outline-secondary">Назад в панела</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">Нов склад</h5>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Име</label>
+                            <input type="text" name="name" class="form-control" placeholder="Търговски обект София" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Код</label>
+                            <input type="text" name="code" class="form-control" placeholder="SOFIA-W1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Описание</label>
+                            <textarea name="description" rows="3" class="form-control" placeholder="Основен магазин..." ></textarea>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="warehouse-active" checked>
+                            <label class="form-check-label" for="warehouse-active">Активен</label>
+                        </div>
+                        <button class="btn btn-brand-new w-100">Създай склад</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">Списък складове</h5>
+                    <div class="list-group">
+                        {% for warehouse in warehouses %}
+                        <a href="{{ url_for('admin.warehouse_detail', warehouse_id=warehouse.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ warehouse.name }}</strong>
+                                <div class="small text-muted">
+                                    {{ warehouse.code }} | {{ warehouse.locations|length }} локации
+                                </div>
+                            </div>
+                            <span class="badge {% if warehouse.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if warehouse.is_active %}Активен{% else %}Неактивен{% endif %}
+                            </span>
+                        </a>
+                        {% else %}
+                        <div class="text-muted small">Все още няма добавени складове.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

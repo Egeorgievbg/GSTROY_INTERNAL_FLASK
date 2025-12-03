@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Редакция на принтер{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 900px;">
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="m-0">Принтер: {{ printer.name or printer.ip_address }}</h5>
+                    <div class="text-muted small">SC: {{ printer.warehouse.name }}</div>
+                </div>
+                <a href="{{ url_for('admin.printers_panel') }}" class="btn btn-outline-secondary btn-sm">← Назад</a>
+            </div>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small text-uppercase text-muted">Склад</label>
+                        <select class="form-select" name="warehouse_id" required>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}" {% if warehouse.id == printer.warehouse_id %}selected{% endif %}>{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-uppercase text-muted">Име</label>
+                        <input type="text" class="form-control" name="name" value="{{ printer.name or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-uppercase text-muted">IP адрес</label>
+                        <input type="text" class="form-control" name="ip_address" value="{{ printer.ip_address }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-uppercase text-muted">Сървър (опционално)</label>
+                        <input type="text" class="form-control" name="server_url" value="{{ printer.server_url or '' }}" placeholder="http://127.0.0.1:8001/">
+                        <div class="small text-muted">Ще се използва преди URL-а на склада.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-uppercase text-muted">Състояние</label>
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="is_default" id="printer-detail-default" {% if printer.is_default %}checked{% endif %}>
+                                <label class="form-check-label" for="printer-detail-default">По подразбиране</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="printer-detail-active" {% if printer.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="printer-detail-active">Активен</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small text-uppercase text-muted">Описание</label>
+                        <textarea class="form-control" name="description" rows="2">{{ printer.description or '' }}</textarea>
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-brand-new px-4">Обнови</button>
+                    </div>
+                </div>
+            </form>
+            <form method="post" action="{{ url_for('admin.delete_printer', printer_id=printer.id) }}" class="mt-3" onsubmit="return confirm('Сигурни ли сте, че искате да изтриете принтера?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-danger px-4">Изтрий принтера</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

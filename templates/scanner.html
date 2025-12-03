@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="bg">
+<head>
+    <meta charset="utf-8">
+    <title>Turbo Scanner Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#0b1120">
+
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- Шрифт за баркодовете -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+
+    
+</head>
+<body>
+
+<div class="container pt-3" style="max-width: 600px;">
+    
+    <!-- Хедър -->
+    <div class="d-flex justify-content-between align-items-end mb-3 px-1">
+        <div>
+            <h5 class="fw-bold m-0 text-white">
+                <i class="bi bi-upc-scan text-danger"></i> Turbo Scan 
+                <span class="badge bg-danger text-uppercase align-middle ms-1" style="font-size: 0.6rem;">Pro</span>
+            </h5>
+            <div class="text-secondary text-mini mt-1" id="last-code-label">
+                Последен код: <span class="text-muted fst-italic">няма</span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" id="unique-check" checked>
+                <label class="form-check-label small text-secondary" for="unique-check">Без дубликати</label>
+            </div>
+            <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" id="sound-check" checked>
+                <label class="form-check-label small text-secondary" for="sound-check">
+                    <i class="bi bi-volume-up"></i>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скенер -->
+    <div class="scanner-wrapper">
+        <div id="reader"></div>
+        
+        <div class="scan-region-highlight" id="scanner-overlay" style="display:none;">
+            <div class="corner tl"></div><div class="corner tr"></div>
+            <div class="corner bl"></div><div class="corner br"></div>
+            <div class="laser-line"></div>
+        </div>
+
+        <div class="controls-overlay" id="camera-controls" style="display:none;">
+            <div id="zoom-container">
+                <div class="d-flex justify-content-between text-white small mb-1">
+                    <span>1x</span><span>Zoom</span><span>Max</span>
+                </div>
+                <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1">
+            </div>
+            <button id="torch-btn" class="icon-btn ms-auto" style="display:none;" type="button">
+                <i class="bi bi-lightbulb-fill fs-5"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div class="d-flex justify-content-between align-items-center mt-2 px-2">
+        <span class="badge bg-dark border border-secondary text-secondary badge-clickable" id="fps-badge">Ready</span>
+        <small class="text-muted status-text-small" id="scan-hint">Натисни СТАРТ, за да активираш скенера</small>
+    </div>
+
+    <!-- START / STOP -->
+    <div class="d-grid gap-2 mt-3 d-flex">
+        <button id="start-btn" class="btn btn-primary flex-fill fw-bold py-3 rounded-3 shadow-lg" type="button">
+            <i class="bi bi-camera-video-fill me-2"></i> СТАРТ
+        </button>
+        <button id="stop-btn" class="btn btn-outline-danger flex-fill fw-bold py-3 rounded-3" disabled type="button">
+            СТОП
+        </button>
+    </div>
+
+    <!-- История -->
+    <div class="mt-4 bg-dark rounded-3 p-3 border border-secondary border-opacity-25">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <div class="d-flex align-items-end gap-2">
+                    <span class="text-white fw-bold fs-5" id="count-total">0</span>
+                    <small class="text-secondary text-uppercase fw-bold">Сканирани</small>
+                </div>
+                <div class="text-mini text-secondary mt-1">
+                    Уникални: <span id="count-unique">0</span>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button onclick="exportToCSV()" class="btn btn-outline-success btn-sm" type="button">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                </button>
+                <button onclick="copyLastCode()" class="btn btn-outline-light btn-sm" type="button">
+                    <i class="bi bi-clipboard-check"></i>
+                </button>
+                <button onclick="clearList()" class="btn btn-outline-secondary btn-sm" type="button">
+                    <i class="bi bi-trash3"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="scan-list" style="max-height: 300px; overflow-y: auto;">
+            <div class="scan-list-header d-none" id="list-header">
+                <div class="d-flex justify-content-between text-mini text-secondary px-1">
+                    <span>Код</span>
+                    <span>Вид • Час</span>
+                </div>
+            </div>
+            <div class="text-center text-secondary py-4 small opacity-50" id="empty-msg">
+                Историята е празна
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+<script>
+(function () {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function triggerFeedback() {
+        if (navigator.vibrate) {
+            navigator.vibrate(120);
+        }
+
+        if (!soundCheck.checked) return;
+        if (!AudioContextClass) return;
+
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = 'square'; 
+        osc.frequency.setValueAtTime(1800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+
+    const startBtn       = document.getElementById('start-btn');
+    const stopBtn        = document.getElementById('stop-btn');
+    const torchBtn       = document.getElementById('torch-btn');
+    const zoomSlider     = document.getElementById('zoom-slider');
+    const zoomContainer  = document.getElementById('zoom-container');
+    const overlay        = document.getElementById('scanner-overlay');
+    const overlayBox     = document.querySelector('.scan-region-highlight');
+    const scanList       = document.getElementById('scan-list');
+    const emptyMsg       = document.getElementById('empty-msg');
+    const listHeader     = document.getElementById('list-header');
+    const countTotal     = document.getElementById('count-total');
+    const countUnique    = document.getElementById('count-unique');
+    const fpsBadge       = document.getElementById('fps-badge');
+    const controlsOverlay= document.getElementById('camera-controls');
+    const uniqueCheck    = document.getElementById('unique-check');
+    const soundCheck     = document.getElementById('sound-check');
+    const scanHint       = document.getElementById('scan-hint');
+    const lastCodeLabel  = document.getElementById('last-code-label');
+
+    let isScanning       = false;
+    let isTorchOn        = false;
+    let scanHistory      = [];           // [{ code, time, format }]
+    let scannedCodesSet  = new Set();    // уникални кодове
+
+    // За стабилност: приемаме код само ако е разчетен минимум 2 пъти подред
+    let lastDecodedText  = "";
+    let sameCodeHits     = 0;
+
+    const STORAGE_KEY_HISTORY     = 'turboScanHistory';
+    const STORAGE_KEY_UNIQUE_PREF = 'turboScanUnique';
+    const STORAGE_KEY_SOUND_PREF  = 'turboScanSound';
+
+    function saveToStorage() {
+        try {
+            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(scanHistory));
+        } catch (e) {
+            console.error("Storage error", e);
+        }
+    }
+    
+    function loadFromStorage() {
+        const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                    scanHistory = parsed;
+                    scannedCodesSet = new Set(scanHistory.map(x => x.code));
+                }
+            } catch (e) {
+                console.error("Storage error", e);
+            }
+        }
+
+        const uniquePref = localStorage.getItem(STORAGE_KEY_UNIQUE_PREF);
+        if (uniquePref !== null) uniqueCheck.checked = uniquePref === '1';
+
+        const soundPref = localStorage.getItem(STORAGE_KEY_SOUND_PREF);
+        if (soundPref !== null) soundCheck.checked = soundPref === '1';
+
+        renderList();
+    }
+
+    uniqueCheck.addEventListener('change', () => {
+        try { localStorage.setItem(STORAGE_KEY_UNIQUE_PREF, uniqueCheck.checked ? '1' : '0'); } catch(e) {}
+    });
+
+    soundCheck.addEventListener('change', () => {
+        try { localStorage.setItem(STORAGE_KEY_SOUND_PREF, soundCheck.checked ? '1' : '0'); } catch(e) {}
+    });
+
+    loadFromStorage();
+
+    // Формати – само EAN-13 / EAN-8 за максимум коректност
+    const formatsToSupport = [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8
+        // При нужда добави: Html5QrcodeSupportedFormats.UPC_A
+    ];
+
+    // Валидация: само цифри + само 8 или 13 цифри + задължителен checksum
+    function isLikelyValidBarcode(text) {
+        const t = (text || "").trim();
+        if (!/^\d+$/.test(t)) return false;
+
+        if (t.length === 13) return isValidEan13(t);
+        if (t.length === 8)  return isValidEan8(t);
+
+        return false;
+    }
+
+    function isValidEan13(code) {
+        if (!/^\d{13}$/.test(code)) return false;
+        let sum = 0;
+        for (let i = 0; i < 12; i++) {
+            const d = parseInt(code.charAt(i), 10);
+            sum += (i % 2 === 0) ? d : d * 3;
+        }
+        const checksum = (10 - (sum % 10)) % 10;
+        return checksum === parseInt(code.charAt(12), 10);
+    }
+
+    function isValidEan8(code) {
+        if (!/^\d{8}$/.test(code)) return false;
+        const digits = code.split('').map(d => parseInt(d, 10));
+        // d1..d8, checksum = d8
+        const sum = 3 * (digits[0] + digits[2] + digits[4] + digits[6]) +
+                    (digits[1] + digits[3] + digits[5]);
+        const checksum = (10 - (sum % 10)) % 10;
+        return checksum === digits[7];
+    }
+
+    function renderList() {
+        scanList.innerHTML = '';
+        countTotal.textContent  = scanHistory.length.toString();
+        countUnique.textContent = scannedCodesSet.size.toString();
+
+        if (scanHistory.length === 0) {
+            listHeader.classList.add('d-none');
+            scanList.appendChild(emptyMsg);
+            emptyMsg.style.display = 'block';
+            lastCodeLabel.innerHTML = 'Последен код: <span class="text-muted fst-italic">няма</span>';
+            return;
+        }
+
+        listHeader.classList.remove('d-none');
+        emptyMsg.style.display = 'none';
+        scanList.appendChild(listHeader);
+
+        const fragment = document.createDocumentFragment();
+
+        scanHistory.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'scan-item';
+            if (index === 0) div.style.borderLeftColor = '#22c55e';
+            
+            const labelFormat = item.format || 'EAN';
+            div.innerHTML = `
+                <div>
+                    <div class="scan-val">${item.code}</div>
+                    <div class="scan-meta text-muted">${labelFormat.toUpperCase()} • ${item.time}</div>
+                </div>
+                <div class="d-flex flex-column align-items-end gap-1">
+                    <button class="btn btn-link text-secondary p-0 text-mini" type="button" onclick="copyCode('${encodeURIComponent(item.code)}')">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                    <button class="btn btn-link text-secondary p-0" type="button" onclick="removeItem(${index})">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            `;
+            fragment.appendChild(div);
+        });
+
+        scanList.appendChild(fragment);
+
+        const last = scanHistory[0];
+        lastCodeLabel.innerHTML = 'Последен код: <span class="text-info">' + escapeHtml(last.code) + '</span>';
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, function (m) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[m];
+        });
+    }
+
+    function addToList(code, formatName) {
+        const time = new Date().toLocaleTimeString('bg-BG', {
+            hour12: false,
+            hour: '2-digit', 
+            minute: '2-digit'
+        });
+
+        const obj = {
+            code: code,
+            time: time,
+            format: formatName || 'EAN'
+        };
+
+        scanHistory.unshift(obj);
+        scannedCodesSet.add(code);
+        saveToStorage();
+        renderList();
+    }
+
+    window.removeItem = function(index) {
+        if (index < 0 || index >= scanHistory.length) return;
+        scanHistory.splice(index, 1);
+        scannedCodesSet = new Set(scanHistory.map(x => x.code));
+        saveToStorage();
+        renderList();
+    };
+
+    window.clearList = function() {
+        if (confirm("Сигурен ли си, че искаш да изтриеш цялата история?")) {
+            scanHistory = [];
+            scannedCodesSet.clear();
+            saveToStorage();
+            renderList();
+        }
+    };
+
+    window.copyCode = function(encodedCode) {
+        const code = decodeURIComponent(encodedCode);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(() => {
+                showHint("Кодът е копиран в клипборда.");
+            }).catch(() => {
+                showHint("Неуспешно копиране.");
+            });
+        } else {
+            showHint("Копиране не се поддържа от този браузър.");
+        }
+    };
+
+    window.copyLastCode = function () {
+        if (!scanHistory.length) {
+            showHint("Няма последен код за копиране.");
+            return;
+        }
+        const code = scanHistory[0].code;
+        window.copyCode(encodeURIComponent(code));
+    };
+
+    function setBadgeState(type, text) {
+        fpsBadge.textContent = text;
+        if (type === 'success') {
+            fpsBadge.className = "badge bg-success";
+        } else if (type === 'error') {
+            fpsBadge.className = "badge bg-danger";
+        } else if (type === 'active') {
+            fpsBadge.className = "badge bg-primary";
+        } else {
+            fpsBadge.className = "badge bg-dark border border-secondary text-secondary";
+        }
+    }
+
+    function showHint(message) {
+        scanHint.textContent = message;
+    }
+
+    function showError(message) {
+        setBadgeState('error', 'Error');
+        showHint(message);
+    }
+
+    startBtn.addEventListener('click', () => {
+        startBtn.disabled = true;
+        startBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Зареждане...';
+        showHint("Инициализиране на камерата...");
+        setBadgeState('active', 'Init');
+
+        const config = {
+            fps: 30, 
+            qrbox: { width: 280, height: 100 }, // тесен хоризонтален прозорец за 1 баркод
+            aspectRatio: 1.0,
+            formatsToSupport: formatsToSupport,
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            },
+            videoConstraints: {
+                facingMode: "environment",
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                focusMode: "continuous"
+            }
+        };
+
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            config, 
+            onScanSuccess,
+            function (_) { /* игнорираме frame грешки */ }
+        ).then(() => {
+            onCameraReady();
+        }).catch(err => {
+            console.error(err);
+            resetUI();
+            showError("Грешка: Няма достъп до камерата. Провери HTTPS и разрешенията.");
+        });
+    });
+
+    function onCameraReady() {
+        isScanning = true;
+        stopBtn.disabled = false;
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="bi bi-camera-video-fill me-2"></i> СТАРТ';
+        overlay.style.display = "block";
+        controlsOverlay.style.display = "flex";
+        setBadgeState('success', 'Active (HD)');
+        showHint("Насочи камерата към баркода в рамката.");
+
+        try {
+            const caps = html5QrCode.getRunningTrackCameraCapabilities && html5QrCode.getRunningTrackCameraCapabilities();
+            
+            if (caps && caps.torchFeature && caps.torchFeature.isSupported()) {
+                torchBtn.style.display = "flex";
+            } else {
+                torchBtn.style.display = "none";
+            }
+
+            if (caps && caps.zoomFeature && caps.zoomFeature.isSupported()) {
+                zoomContainer.style.display = "block";
+                const z = caps.zoomFeature;
+                zoomSlider.min = z.min();
+                zoomSlider.max = z.max();
+                zoomSlider.step = z.step();
+                zoomSlider.value = z.value();
+            } else {
+                zoomContainer.style.display = "none";
+            }
+        } catch(err) {
+            console.warn("Неуспешно извличане на настройки на камерата:", err);
+        }
+    }
+
+    // Ключов момент: приемаме код само ако е:
+    // 1) валиден EAN-8/EAN-13 (checksum)
+    // 2) разчетен поне 2 пъти поред
+    function onScanSuccess(decodedText, decodedResult) {
+        const cleaned = (decodedText || "").trim();
+        if (!cleaned) return;
+
+        if (!isLikelyValidBarcode(cleaned)) {
+            // шум или частични разчитания – игнор
+            sameCodeHits = 0;
+            lastDecodedText = "";
+            return;
+        }
+
+        if (cleaned === lastDecodedText) {
+            sameCodeHits++;
+        } else {
+            lastDecodedText = cleaned;
+            sameCodeHits = 1;
+        }
+
+        // изчакваме поне втори последователен прочит на същия код
+        if (sameCodeHits < 2) {
+            return;
+        }
+
+        // вече сме го приели – зануляваме, за да чакаме пак стабилно „двойно“ попадение
+        sameCodeHits = 0;
+
+        if (uniqueCheck.checked && scannedCodesSet.has(cleaned)) {
+            showHint("Кодът вече е сканиран (без дубликати).");
+            return;
+        }
+
+        triggerFeedback();
+
+        if (overlayBox) {
+            overlayBox.classList.remove('success-pulse');
+            void overlayBox.offsetWidth;
+            overlayBox.classList.add('success-pulse');
+        }
+
+        const fmt = (decodedResult && decodedResult.result && decodedResult.result.format && decodedResult.result.format.formatName) 
+            || (decodedResult && decodedResult.format && decodedResult.format.formatName) 
+            || (cleaned.length === 13 ? 'EAN-13' : 'EAN-8');
+
+        addToList(cleaned, fmt);
+        showHint("Код сканиран успешно.");
+        setBadgeState('success', 'Scan OK');
+    }
+
+    stopBtn.addEventListener('click', async () => {
+        if (!isScanning) return;
+        await stopScanner();
+    });
+
+    async function stopScanner() {
+        try {
+            if (isScanning && html5QrCode) {
+                await html5QrCode.stop();
+            }
+        } catch (e) {
+            console.warn("Грешка при stop()", e);
+        } finally {
+            resetUI();
+        }
+    }
+
+    function resetUI() {
+        isScanning = false;
+        isTorchOn = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        overlay.style.display = "none";
+        controlsOverlay.style.display = "none";
+        torchBtn.classList.remove('active');
+        setBadgeState('default', 'Stopped');
+        showHint("Скенерът е спрян. Натисни СТАРТ, за да продължиш.");
+        lastDecodedText = "";
+        sameCodeHits = 0;
+    }
+
+    torchBtn.addEventListener('click', () => {
+        const newStatus = !isTorchOn;
+        html5QrCode.applyVideoConstraints({ advanced: [{ torch: newStatus }] })
+        .then(() => {
+            isTorchOn = newStatus;
+            torchBtn.classList.toggle('active', isTorchOn);
+        })
+        .catch(err => {
+            console.error("Torch failed", err);
+            showHint("Фенерчето не се поддържа от тази камера.");
+        });
+    });
+
+    zoomSlider.addEventListener('input', (e) => {
+        const zoomVal = parseFloat(e.target.value);
+        html5QrCode.applyVideoConstraints({ advanced: [{ zoom: zoomVal }] })
+        .catch(err => {
+            console.error("Zoom failed", err);
+        });
+    });
+
+    window.exportToCSV = function() {
+        if (scanHistory.length === 0) { 
+            showHint("Няма данни за експорт.");
+            return; 
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+        csvContent += "Barcode,Format,Timestamp\n";
+        
+        scanHistory.slice().reverse().forEach(row => {
+            const line = `"${row.code.replace(/"/g, '""')}",${row.format},${row.time}\n`;
+            csvContent += line;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `scanned_codes_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showHint("CSV файлът е генериран.");
+    };
+
+    document.addEventListener("visibilitychange", async () => {
+        if (document.hidden && isScanning) {
+            await stopScanner();
+        }
+    });
+
+    window.onbeforeunload = function() {
+        if (scanHistory.length > 0 && isScanning) {
+            return "Имате активен скенер и незатворена сесия.";
+        }
+    };
+})();
+</script>
+
+</body>
+</html>

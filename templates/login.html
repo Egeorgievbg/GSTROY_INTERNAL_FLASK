@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Вход | GSTROY{% endblock %}
+
+{% block content %}
+<style>
+    /* LOGIN SPECIFIC STYLES */
+    
+    /* Full height centering */
+    .login-wrapper {
+        min-height: 80vh; /* Almost full screen */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* The Card */
+    .login-card {
+        width: 100%;
+        max-width: 420px;
+        background: #fff;
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+        padding: 2.5rem;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.02);
+    }
+    
+    /* Green Top Border/Accent */
+    .login-card::top {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px;
+        background: var(--brand-green);
+    }
+
+    /* Inputs with Icons */
+    .input-group-text {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #94a3b8;
+        border-top-left-radius: 12px;
+        border-bottom-left-radius: 12px;
+        padding-left: 1rem;
+    }
+    .form-control-login {
+        height: 50px;
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        border-left: none;
+        border-top-right-radius: 12px;
+        border-bottom-right-radius: 12px;
+        font-weight: 600;
+        color: var(--brand-dark);
+        transition: all 0.2s;
+    }
+    .form-control-login:focus {
+        background: #fff;
+        border-color: var(--brand-green);
+        box-shadow: none;
+    }
+    .input-group:focus-within .input-group-text {
+        background: #fff;
+        border-color: var(--brand-green);
+        color: var(--brand-green);
+    }
+
+    /* Demo Credentials Box */
+    .demo-box {
+        background: #f1f5f9;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 2rem;
+        text-align: center;
+        border: 1px dashed #cbd5e1;
+    }
+    .cred-pill {
+        display: inline-block;
+        background: #fff;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-family: 'Menlo', monospace;
+        font-size: 0.85rem;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: all;
+    }
+    .cred-pill:hover {
+        border-color: var(--brand-green);
+        color: var(--brand-green-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+</style>
+
+<div class="login-wrapper fade-in">
+    
+    <!-- Logo Area -->
+    <div class="text-center mb-4">
+        <div class="bg-white p-3 rounded-circle shadow-sm d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+            <img src="https://internal.gstroy.bg/static/assets/images/GStroy-logo.svg" alt="GStroy" style="width: 50px;">
+        </div>
+        <h1 class="h4 fw-bold text-dark mb-1">Добре дошли</h1>
+        <p class="text-muted small">Влезте в системата за управление</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="login-card">
+        <form method="post" novalidate id="loginForm">
+            
+            <div class="mb-4">
+                <label class="form-label small fw-bold text-muted text-uppercase ms-1">Потребител</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" class="form-control form-control-login" id="username" name="username" placeholder="Вашето потребителско име" autocomplete="username" required>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label small fw-bold text-muted text-uppercase ms-1">Парола</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" class="form-control form-control-login" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-brand-new w-100 py-3 fs-6 shadow-lg mt-2">
+                Вход в системата <i class="bi bi-arrow-right ms-2"></i>
+            </button>
+        </form>
+    </div>
+
+    <!-- Demo Info -->
+    <div class="demo-box fade-in" style="animation-delay: 0.2s;">
+        <div class="d-flex align-items-center justify-content-center gap-2 mb-2 text-muted small text-uppercase fw-bold">
+            <i class="bi bi-stars text-warning"></i> Демо Достъп
+        </div>
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <div class="cred-pill" onclick="fillCreds('admin', 'username')" title="Кликни за попълване">
+                User: <strong>admin</strong>
+            </div>
+            <div class="cred-pill" onclick="fillCreds('demo1234', 'password')" title="Кликни за попълване">
+                Pass: <strong>demo1234</strong>
+            </div>
+        </div>
+        <div class="text-muted small mt-2" style="font-size: 0.75rem;">
+            Кликнете върху данните, за да ги попълните автоматично.
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Auto-fill helper for demo
+    function fillCreds(value, fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.value = value;
+            // Visual feedback
+            field.classList.add('bg-white');
+            field.focus();
+            setTimeout(() => field.classList.remove('bg-white'), 300);
+        }
+    }
+</script>
+{% endblock %}

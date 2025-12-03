@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Каталог | GSTROY{% endblock %}
+
+{% block content %}
+
+<!-- MOBILE FILTER BUTTON -->
+<div class="d-lg-none position-fixed start-50 translate-middle-x z-3" style="bottom: 100px;">
+    <button class="btn btn-brand-new shadow-lg px-4 py-2 rounded-pill d-flex align-items-center gap-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#filterCanvas">
+        <i class="bi bi-sliders"></i> Филтри
+    </button>
+</div>
+
+<div class="row g-4">
+    <!-- SIDEBAR FILTERS (DESKTOP) -->
+    <div class="col-lg-3 d-none d-lg-block">
+        <aside class="filter-panel custom-scrollbar">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h5 class="fw-bold m-0"><i class="bi bi-sliders2 me-2 text-success"></i>Филтри</h5>
+                <a href="{{ url_for('products.products') }}" class="text-muted small text-decoration-none hover-underline">Изчисти</a>
+            </div>
+            
+            <form>
+                <div class="mb-4">
+                    <div class="filter-heading">Ключова дума</div>
+                    <div class="input-group-aero">
+                        <input type="text" class="input-aero ps-5" name="name" value="{{ name_query }}" placeholder="Търси...">
+                        <i class="bi bi-search input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="filter-heading">Производител</div>
+                    <div class="input-group-aero">
+                        <select class="input-aero select-aero" name="brand">
+                            <option value="">Всички марки</option>
+                            {% for brand in brands %}
+                                <option value="{{ brand }}" {% if selected_brand == brand %}selected{% endif %}>{{ brand }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="filter-heading mb-3">Категории</div>
+                    <div class="d-flex flex-column category-container ps-1">
+                        {% for main, data in category_tree.items() %}
+                            <div class="tree-item">
+                                <div class="tree-trigger" data-bs-toggle="collapse" data-bs-target="#tree-{{ loop.index }}" aria-expanded="false">
+                                    <span>{{ main }}</span>
+                                    <i class="bi bi-chevron-down tree-icon"></i>
+                                </div>
+                                <div class="collapse" id="tree-{{ loop.index }}">
+                                    <div class="tree-submenu">
+                                        {% if data is mapping and data.children %}
+                                            {% for sub in data.children.keys() %}
+                                                <a href="#" class="sub-link">{{ sub|capitalize }}</a>
+                                            {% endfor %}
+                                        {% elif data is iterable and data is not string %}
+                                            {% for sub in data %}
+                                                <a href="#" class="sub-link">{{ sub|capitalize }}</a>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <input type="hidden" name="view" value="{{ view_mode }}">
+                <button class="btn-filter-apply w-100 mt-2">ПРИЛОЖИ</button>
+            </form>
+        </aside>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="col-lg-9">
+        
+        <!-- Top Toolbar -->
+        <div class="catalog-toolbar fade-in">
+            <div class="me-auto">
+                <h1 class="h4 fw-bold text-dark mb-0">Продукти</h1>
+                <span class="text-muted small" id="total-count-label">{{ total_items }} резултата</span>
+            </div>
+            
+            <div class="bg-light p-1 rounded-3 d-flex border">
+                <a href="{{ cards_url }}" class="btn btn-sm border-0 rounded-2 {{ 'bg-white shadow-sm fw-bold text-dark' if view_mode == 'cards' else 'text-muted' }}">
+                    <i class="bi bi-grid-fill"></i>
+                </a>
+                <a href="{{ table_url }}" class="btn btn-sm border-0 rounded-2 {{ 'bg-white shadow-sm fw-bold text-dark' if view_mode == 'table' else 'text-muted' }}">
+                    <i class="bi bi-list-ul"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- PRODUCTS GRID / TABLE WRAPPER -->
+        <!-- Тук зареждаме първите 30 продукта -->
+        <div id="products-wrapper">
+            {% if view_mode == 'cards' %}
+                <div id="products-container" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-4">
+                    {% include "products_partial.html" %}
+                </div>
+            {% else %}
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden fade-in">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-clean">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Артикул</th>
+                                    <th>Наименование</th>
+                                    <th>Марка</th>
+                                    <th>Локация</th>
+                                    <th class="text-end pe-4">Цена</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-table-body">
+                                {% include "products_partial.html" %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- LOAD MORE BUTTON -->
+        {% if has_more %}
+        <div class="text-center mt-5 mb-5" id="load-more-section">
+            <p class="text-muted small mb-3" id="shown-count-label">Показани са {{ products|length }} от {{ total_items }}</p>
+            <button id="btn-load-more" class="btn-load-more" data-next-page="{{ next_page }}">
+                <span class="spinner-border spinner-border-sm d-none me-2"></span>
+                <span class="btn-text">Покажи още</span> <i class="bi bi-chevron-down ms-1"></i>
+            </button>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- OFFCANVAS FILTERS (MOBILE) -->
+<div class="offcanvas offcanvas-bottom offcanvas-bottom-rounded" tabindex="-1" id="filterCanvas">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title fw-bold">Филтри</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body p-4">
+    <form>
+        <div class="mb-3">
+            <label class="form-label small fw-bold text-muted">Търсене</label>
+            <input type="text" class="form-control form-control-lg bg-light border-0" name="name" value="{{ name_query }}">
+        </div>
+        <!-- Add other mobile filters here if needed -->
+        <input type="hidden" name="view" value="{{ view_mode }}">
+        <button class="btn btn-brand-new w-100 py-3 mt-4">Приложи</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btn-load-more');
+    if (!btn) return;
+
+    btn.addEventListener('click', function() {
+        const nextPage = btn.getAttribute('data-next-page');
+        const spinner = btn.querySelector('.spinner-border');
+        const btnText = btn.querySelector('.btn-text');
+        const icon = btn.querySelector('.bi');
+        const container = document.getElementById('products-container'); // For cards
+        const tableBody = document.getElementById('products-table-body'); // For table
+
+        // UI Loading
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        icon.classList.add('d-none');
+        btnText.textContent = 'Зареждане...';
+
+        // Build URL
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', nextPage);
+        url.searchParams.set('partial', '1'); // Tell backend we want only HTML
+
+        fetch(url)
+            .then(res => res.text())
+            .then(html => {
+                if (!html.trim()) {
+                    document.getElementById('load-more-section').remove();
+                    return;
+                }
+
+                // Append Content
+                if (container) {
+                    container.insertAdjacentHTML('beforeend', html);
+                } else if (tableBody) {
+                    tableBody.insertAdjacentHTML('beforeend', html);
+                }
+
+                // Update State
+                const newPage = parseInt(nextPage) + 1;
+                btn.setAttribute('data-next-page', newPage);
+                
+                // Update Counts
+                const currentItems = document.querySelectorAll('.fade-in-item').length;
+                const totalItems = "{{ total_items }}";
+                document.getElementById('shown-count-label').textContent = `Показани са ${currentItems} от ${totalItems}`;
+
+                if (currentItems >= parseInt(totalItems)) {
+                    document.getElementById('load-more-section').remove();
+                } else {
+                    btn.disabled = false;
+                    spinner.classList.add('d-none');
+                    icon.classList.remove('d-none');
+                    btnText.textContent = 'Покажи още';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                btnText.textContent = 'Грешка';
+            });
+    });
+});
+</script>
+{% endblock %}

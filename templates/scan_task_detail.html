@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% block title %}{{ task.name }} | Scan Console{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-4 mb-4 fade-in">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-light text-dark border font-monospace shadow-sm">TASK-{{ task.id }}</span>
+            <span class="badge bg-white text-secondary border shadow-sm text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;">{{ task.status }}</span>
+        </div>
+        <h1 class="h3 fw-bold text-dark mb-1">{{ task.name }}</h1>
+        <div class="text-muted small d-flex align-items-center gap-3">
+            <span><i class="bi bi-layers me-1 text-primary"></i> {{ task.type }}</span>
+            <span><i class="bi bi-building me-1 text-secondary"></i> {{ task.warehouse.name if task.warehouse else 'Няма склад' }}</span>
+        </div>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('scanning.scan_task_export', task_id=task.id) }}" class="btn btn-white border shadow-sm fw-bold text-dark d-flex align-items-center gap-2">
+            <i class="bi bi-download"></i> CSV
+        </a>
+        <a href="{{ url_for('scanning.scan_task_list') }}" class="btn btn-light border text-muted fw-bold">
+            Изход
+        </a>
+    </div>
+</div>
+
+<!-- DASHBOARD GRID -->
+<div class="row g-4 mb-4 fade-in" style="animation-delay: 0.1s;">
+    <!-- Scanner HUD -->
+    <div class="col-lg-5">
+        <div class="scanner-hud">
+            <div class="scan-line"></div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="hud-label"><i class="bi bi-wifi me-2 text-success"></i>ONLINE</div>
+                <div class="spinner-grow spinner-grow-sm text-success" role="status" style="--bs-spinner-animation-speed: 2s;"></div>
+            </div>
+            
+            <div class="text-center my-3">
+                <div class="hud-value" id="last-scan">READY...</div>
+                <div class="text-white-50 small mt-1 text-uppercase" style="letter-spacing: 1px;">Насочете скенера</div>
+            </div>
+
+            <div id="scan-error" class="text-danger small fw-bold text-center bg-black bg-opacity-40 rounded px-2 py-1" style="min-height: 1.5em; opacity: 0; transition: opacity 0.2s;"></div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="col-lg-7">
+        <div class="row g-3 h-100">
+            <div class="col-4">
+                <div class="stat-mini-card">
+                    <div class="stat-mini-val text-dark">{{ task.total_items }}</div>
+                    <div class="stat-mini-label">Общо Артикули</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="stat-mini-card">
+                    <div class="stat-mini-val text-success">{{ task.completed_items }}</div>
+                    <div class="stat-mini-label">Завършени</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="stat-mini-card">
+                    <div class="stat-mini-val text-warning">{{ task.total_items - task.completed_items }}</div>
+                    <div class="stat-mini-label">Остават</div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                {% set percent = (task.completed_items / task.total_items * 100) if task.total_items else 0 %}
+                <div class="bg-white border rounded-4 p-4 d-flex align-items-center gap-4 h-100 shadow-sm">
+                    <div class="d-flex flex-column align-items-center justify-content-center" style="width: 60px;">
+                        <div class="h4 fw-bold text-success mb-0">{{ "%.0f"|format(percent) }}%</div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between small mb-2">
+                            <span class="fw-bold text-muted text-uppercase letter-spacing-1">Прогрес на изпълнение</span>
+                        </div>
+                        <div class="progress-track m-0">
+                            <div class="progress-fill" style="width: {{ percent }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="d-flex flex-wrap gap-3 align-items-center mb-3 fade-in" style="animation-delay: 0.2s;">
+    <div class="filter-group">
+        <label class="filter-chip">
+            <input type="checkbox" id="filter-pending"> Чакащи
+        </label>
+        <label class="filter-chip">
+            <input type="checkbox" id="filter-manual"> Ръчни
+        </label>
+        <label class="filter-chip">
+            <input type="checkbox" id="filter-over"> Грешки
+        </label>
+    </div>
+
+    <div class="ms-auto position-relative" style="min-width: 250px;">
+        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+        <input type="text" id="search-input" class="form-control rounded-pill ps-5 border-0 shadow-sm" placeholder="Бързо търсене...">
+    </div>
+</div>
+
+<!-- TABLE (FIXED) -->
+<div class="fade-in mb-2" style="animation-delay: 0.3s;">
+    <div class="table-responsive" style="max-height: 650px; padding: 0 4px;">
+        <table class="table table-fixed-layout mb-0" id="items-table">
+            
+            <!-- COLGROUP: THE LAW -->
+            <colgroup>
+                <col style="width: 16%;"> <!-- Barcode -->
+                <col style="width: 34%;"> <!-- Product -->
+                <col style="width: 10%;"> <!-- Expected -->
+                <col style="width: 10%;"> <!-- Scanned -->
+                <col style="width: 10%;"> <!-- Remaining -->
+                <col style="width: 12%;"> <!-- Status -->
+                <col style="width: 8%;">  <!-- Button -->
+            </colgroup>
+
+            <thead class="table-sticky-header">
+                <tr>
+                    <th class="ps-4 text-start">Barcode</th>
+                    <th class="text-start">Продукт</th>
+                    <th class="text-end">Очаквано</th>
+                    <th class="text-end">Сканирано</th>
+                    <th class="text-end">Остава</th>
+                    <th class="text-center">Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            
+            <tbody>
+            {% for item in task.items %}
+                {% set requires_manual = item.requires_manual %}
+                {% set status_class = 'row-status-pending' %}
+                {% if requires_manual %}{% set status_class = 'row-status-manual' %}
+                {% elif item.is_completed %}{% set status_class = 'row-status-ok' %}
+                {% elif item.is_over_scanned %}{% set status_class = 'row-status-over' %}
+                {% endif %}
+
+                <tr class="table-row-modern {{ status_class }}"
+                    data-item-id="{{ item.id }}"
+                    data-completed="{{ 1 if item.is_completed else 0 }}"
+                    data-manual="{{ 1 if requires_manual else 0 }}"
+                    data-over="{{ 1 if item.is_over_scanned else 0 }}">
+                    
+                    <td class="ps-4">
+                        <div class="font-monospace fw-bold text-dark text-truncate" title="{{ item.barcode }}">
+                            {{ item.barcode }}
+                        </div>
+                    </td>
+                    
+                    <td>
+                        <div class="fw-bold text-dark text-truncate" style="max-width: 100%;" title="{{ item.product.name }}">
+                            {{ item.product.name if item.product else 'Unknown' }}
+                        </div>
+                    </td>
+                    
+                    <td class="text-end text-muted expected">{{ "%.2f"|format(item.expected_qty) }}</td>
+                    <td class="text-end fw-bold text-dark scanned">{{ "%.2f"|format(item.scanned_qty) }}</td>
+                    <td class="text-end fw-bold remaining {{ 'text-danger' if item.remaining_qty > 0 else 'text-success' }}">
+                        {{ "%.2f"|format(item.remaining_qty) }}
+                    </td>
+                    
+                    <td class="text-center status-cell">
+                        {% if requires_manual %}
+                            <span class="badge bg-warning text-dark w-100 rounded-pill">MANUAL</span>
+                        {% elif item.is_completed %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success w-100 rounded-pill">OK</span>
+                        {% elif item.is_over_scanned %}
+                            <span class="badge bg-danger w-100 rounded-pill">OVER</span>
+                        {% else %}
+                            <span class="badge bg-light text-muted border w-100 rounded-pill">WAIT</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-end pe-3">
+                        {% if requires_manual %}
+                            <button class="btn btn-sm btn-light border manual-btn shadow-sm" 
+                                    data-item-id="{{ item.id }}" data-item-name="{{ item.product.name }}">
+                                <i class="bi bi-keyboard"></i>
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="text-center py-5 text-muted">Няма редове в задачата.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TERMINAL LOG -->
+<div class="terminal-window fade-in" style="animation-delay: 0.4s;">
+    <div class="terminal-header">
+        <i class="bi bi-terminal-fill me-2"></i> SYSTEM_EVENT_LOG
+        <span class="ms-auto text-success small d-flex align-items-center gap-2"><span class="spinner-grow spinner-grow-sm" style="width: 6px; height: 6px;"></span> Live</span>
+    </div>
+    <div class="terminal-body" style="max-height: 200px; overflow-y: auto;">
+        <table class="log-table" id="events-table">
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td style="width: 100px; color: #64748b;">{{ event.created_at.strftime('%H:%M:%S') }}</td>
+                    <td style="width: 140px; color: #e2e8f0;">{{ event.barcode or 'MANUAL' }}</td>
+                    <td style="width: 80px; color: #94a3b8;">x{{ event.qty }}</td>
+                    <td class="{{ 'log-err' if event.is_error else 'log-ok' }}">{{ event.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MANUAL MODAL -->
+<div class="modal fade" id="manualModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-0 bg-warning text-dark pb-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-keyboard-fill me-2"></i>Ръчен Вход</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body bg-warning bg-opacity-10 pt-3 pb-4">
+        <div class="text-dark fw-bold mb-3 text-center small text-uppercase" id="manual-product"></div>
+        <input type="number" id="manual-qty" class="form-control form-control-lg text-center fw-bold border-warning shadow-sm" placeholder="0.00" step="any">
+      </div>
+      <div class="modal-footer border-0 p-2 bg-light">
+        <input type="hidden" id="manual-item-id">
+        <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">Отказ</button>
+        <button type="button" class="btn btn-dark px-4 rounded-pill" id="manual-submit">Потвърди</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  const errorBox = document.getElementById('scan-error');
+  const itemsTable = document.getElementById('items-table');
+  const lastScanEl = document.getElementById('last-scan');
+  const searchInput = document.getElementById('search-input');
+  const eventsTable = document.getElementById('events-table').querySelector('tbody');
+  
+  document.querySelectorAll('.filter-chip').forEach(label => {
+      label.querySelector('input').addEventListener('change', (e) => {
+          e.target.closest('.filter-chip').classList.toggle('active', e.target.checked);
+          applyFilters();
+      });
+  });
+
+  const manualModalEl = document.getElementById('manualModal');
+  const manualModal = new bootstrap.Modal(manualModalEl);
+  const manualProduct = document.getElementById('manual-product');
+  const manualQty = document.getElementById('manual-qty');
+  const manualItemId = document.getElementById('manual-item-id');
+  const manualSubmit = document.getElementById('manual-submit');
+  
+  manualModalEl.addEventListener('shown.bs.modal', () => manualQty.focus());
+
+  let scanBuffer = '';
+  let bufferTimer = null;
+  let lastEventId = {{ events[0].id if events else 0 }};
+
+  function clearBuffer() {
+    scanBuffer = '';
+    if (bufferTimer) { clearTimeout(bufferTimer); bufferTimer = null; }
+  }
+
+  async function handleScan(barcode) {
+    const code = barcode.trim();
+    if (!code) return;
+    lastScanEl.textContent = code;
+    lastScanEl.style.color = '#fff';
+    errorBox.style.opacity = '0';
+    
+    try {
+      const response = await fetch('{{ url_for("scanning.scan_task_scan", task_id=task.id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: code, qty: 1 })
+      });
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        errorBox.textContent = data.error || 'Грешка!';
+        errorBox.style.opacity = '1';
+        lastScanEl.style.color = '#ef4444'; 
+      } else {
+        updateRow(data.item);
+        lastScanEl.style.color = '#a6cf39'; 
+        if (data.summary.all_completed) {
+           setTimeout(() => window.location.reload(), 1500);
+        }
+      }
+    } catch (err) {
+      errorBox.textContent = 'Network Error';
+      errorBox.style.opacity = '1';
+    }
+  }
+
+  document.addEventListener('keypress', (event) => {
+    if(event.target.tagName === 'INPUT') return;
+    const key = event.key;
+    if (key === 'Enter') {
+      event.preventDefault();
+      const code = scanBuffer;
+      clearBuffer();
+      if(code.length > 2) handleScan(code);
+    } else {
+      scanBuffer += key;
+      if (bufferTimer) clearTimeout(bufferTimer);
+      bufferTimer = setTimeout(() => clearBuffer(), 100);
+    }
+  });
+
+  function updateRow(item) {
+    const row = itemsTable.querySelector(`[data-item-id="${item.id}"]`);
+    if (!row) return;
+    
+    row.querySelector('.scanned').textContent = item.scanned_qty.toFixed(2);
+    const remainingEl = row.querySelector('.remaining');
+    remainingEl.textContent = item.remaining_qty.toFixed(2);
+    
+    remainingEl.classList.remove('text-danger', 'text-success');
+    if(item.remaining_qty > 0) remainingEl.classList.add('text-danger');
+    else remainingEl.classList.add('text-success');
+
+    row.dataset.completed = item.is_completed ? 1 : 0;
+    row.dataset.over = item.is_over_scanned ? 1 : 0;
+    
+    row.className = 'table-row-modern';
+    const statusCell = row.querySelector('.status-cell');
+    
+    if (row.dataset.manual === '1') {
+      row.classList.add('row-status-manual');
+    } else if (item.is_completed) {
+      row.classList.add('row-status-ok');
+      statusCell.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success border border-success w-100 rounded-pill">OK</span>';
+    } else if (item.is_over_scanned) {
+      row.classList.add('row-status-over');
+      statusCell.innerHTML = '<span class="badge bg-danger w-100 rounded-pill">OVER</span>';
+    } else {
+      row.classList.add('row-status-pending');
+      statusCell.innerHTML = '<span class="badge bg-light text-muted border w-100 rounded-pill">WAIT</span>';
+    }
+    
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    applyFilters();
+  }
+
+  searchInput.addEventListener('input', applyFilters);
+
+  function applyFilters() {
+    const showPending = document.getElementById('filter-pending').checked;
+    const showManual = document.getElementById('filter-manual').checked;
+    const showOver = document.getElementById('filter-over').checked;
+    const search = (searchInput.value || '').toLowerCase();
+    const rows = itemsTable.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+      let visible = true;
+      
+      const isPending = row.dataset.completed === '0' && row.dataset.over === '0';
+      const isManual = row.dataset.manual === '1';
+      const isOver = row.dataset.over === '1';
+      
+      let typeMatch = true;
+      if (showPending || showManual || showOver) {
+          typeMatch = false;
+          if (showPending && isPending) typeMatch = true;
+          if (showManual && isManual) typeMatch = true;
+          if (showOver && isOver) typeMatch = true;
+      }
+
+      if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+      
+      row.style.display = (visible && typeMatch) ? '' : 'none';
+    });
+  }
+
+  document.addEventListener('click', function(e) {
+      if (e.target.closest('.manual-btn')) {
+          const btn = e.target.closest('.manual-btn');
+          manualItemId.value = btn.dataset.itemId;
+          manualProduct.textContent = btn.dataset.itemName;
+          manualQty.value = ''; 
+          manualModal.show();
+      }
+  });
+
+  manualSubmit.addEventListener('click', async () => {
+    const itemId = manualItemId.value;
+    const qty = parseFloat(manualQty.value || '0');
+    if (!qty || qty <= 0) {
+      manualQty.classList.add('is-invalid');
+      return;
+    }
+    manualQty.classList.remove('is-invalid');
+    try {
+    const response = await fetch('{{ url_for("scanning.scan_task_manual", task_id=task.id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: itemId, qty: qty })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        alert(data.error || 'Error');
+      } else {
+        updateRow(data.item);
+        manualModal.hide();
+      }
+    } catch (err) {
+      alert('Network error');
+    }
+  });
+
+  async function pollEvents() {
+    try {
+      const response = await fetch(`{{ url_for('scanning.scan_task_events', task_id=task.id) }}?since_id=${lastEventId}`);
+      if (!response.ok) return;
+      const events = await response.json();
+      if (!Array.isArray(events) || !events.length) return;
+      
+      events.reverse().forEach(ev => {
+        const row = document.createElement('tr');
+        row.dataset.eventId = ev.id;
+        const statusClass = ev.is_error ? 'log-err' : 'log-ok';
+        row.innerHTML = `
+          <td style="color:#64748b;">${new Date(ev.created_at).toLocaleTimeString()}</td>
+          <td style="color:#e2e8f0;">${ev.barcode || 'MANUAL'}</td>
+          <td style="color:#94a3b8;">${ev.qty}</td>
+          <td class="${statusClass}">${ev.message || ''}</td>
+        `;
+        eventsTable.prepend(row);
+      });
+      lastEventId = events[0].id;
+      
+      while (eventsTable.children.length > 10) {
+        eventsTable.removeChild(eventsTable.lastElementChild);
+      }
+    } catch (err) {
+    }
+  }
+
+  setInterval(pollEvents, 3000);
+</script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}ППП · {{ order.external_id or order.id }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-0">Приемо-предавателен протокол</h1>
+      <div class="text-muted small">СН {{ order.external_id or order.id }} · Клиент: {{ order.client_name }}</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('orders.stock_order_handover', order_id=order.id) }}">Назад към предаване</a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-end gap-2 mb-3">
+        <button type="button" class="btn btn-sm btn-outline-info" data-json-endpoint="{{ url_for('orders.stock_order_erp_input', order_id=order.id) }}" data-json-title="ERP вход · {{ order.external_id or order.id }}">IN</button>
+        <button type="button" class="btn btn-sm btn-outline-info" data-json-endpoint="{{ url_for('orders.stock_order_erp_output', order_id=order.id) }}" data-json-title="ERP изход · {{ order.external_id or order.id }}">OUT</button>
+      </div>
+      <div class="row g-3 mb-3 text-muted">
+        <div class="col-md-3">
+          <div class="small">Клиент</div>
+          <div class="fw-bold text-dark">{{ order.client_name }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small">Предадено на</div>
+          <div class="text-dark">
+            {{ order.delivered_at.strftime('%Y-%m-%d %H:%M') if order.delivered_at else '—' }}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="small">Предал</div>
+          <div class="text-dark">
+            {{ order.delivered_by.full_name if order.delivered_by else '—' }}
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="small">PPP статус</div>
+          <div class="text-dark">{{ ppp.status }}</div>
+        </div>
+      </div>
+
+      {% if pdf_url %}
+        <div class="mb-2">
+          <a class="btn btn-outline-primary" href="{{ pdf_url }}" target="_blank">
+            <i class="bi bi-file-earmark-pdf"></i> Отвори PDF
+          </a>
+        </div>
+        <div class="ratio ratio-16x9 border mb-3">
+          <iframe src="{{ pdf_url }}" title="PPP PDF" allowfullscreen></iframe>
+        </div>
+      {% else %}
+        <p class="text-muted">Все още няма генериран PDF.</p>
+      {% endif %}
+
+      {% if signature_url %}
+        <div>
+          <div class="small text-muted">Подпис:</div>
+          <img src="{{ signature_url }}" alt="Подпис" class="border rounded" style="max-width: 320px;">
+        </div>
+      {% else %}
+        <p class="text-muted">Подписът липсва.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}ППП Документи | GSTROY{% endblock %}
+
+{% block content %}
+
+<!-- HEADER AREA -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4 fade-in">
+  <div>
+    <h1 class="h3 fw-bold text-dark mb-1">ППП Документи</h1>
+    <p class="text-muted mb-0">Архив на подписани протоколи и дигитални подписи.</p>
+  </div>
+  
+  <div class="bg-white p-1 rounded-3 shadow-sm border d-flex">
+    <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'cards' else 'text-muted' }}" href="{{ cards_url }}" title="Карти">
+      <i class="bi bi-grid-fill"></i>
+    </a>
+    <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'table' else 'text-muted' }}" href="{{ table_url }}" title="Таблица">
+      <i class="bi bi-list-ul"></i>
+    </a>
+  </div>
+</div>
+
+<!-- SEARCH HERO -->
+<div class="mb-4 fade-in" style="animation-delay: 0.1s;">
+  <div class="search-wrapper">
+    <input type="text" class="search-input-hero" id="pppSearchDisplay" placeholder="Търси по номер, клиент или склад..." autocomplete="off">
+    <i class="bi bi-file-earmark-text search-icon-fixed"></i>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="fade-in" style="animation-delay: 0.2s;">
+{% if orders %}
+    
+    {% if view_mode == 'cards' %}
+      <!-- CARDS VIEW -->
+      <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        {% for order in orders %}
+          <div class="col search-item" data-search-value="{{ (order.external_id or order.id ~ ' ' ~ order.client_name ~ ' ' ~ (order.warehouse.name if order.warehouse else '')) | lower }}">
+            
+            <div class="modern-card h-100">
+              <!-- Card Header -->
+              <div class="card-header-strip pb-0 border-0 bg-transparent pt-3 px-3">
+                 <div class="d-flex justify-content-between align-items-center w-100">
+                     <div class="d-flex align-items-center gap-2">
+                         <i class="bi bi-file-earmark-richtext-fill text-primary fs-5"></i>
+                         <span class="fw-bold text-dark font-monospace">{{ order.external_id or order.id }}</span>
+                     </div>
+                     
+                     <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                         {{ status_labels.get(order.status, order.status) }}
+                     </span>
+                 </div>
+              </div>
+
+              <!-- Card Body -->
+              <div class="card-body-custom pt-2 d-flex flex-column h-100">
+                
+                <!-- Client Name -->
+                <h5 class="fw-bold text-dark mb-3 mt-1 text-truncate" title="{{ order.client_name }}">
+                    {{ order.client_name }}
+                </h5>
+                
+                <!-- Info Box -->
+                <div class="d-flex align-items-center gap-2 text-muted small mb-3">
+                    <i class="bi bi-building-fill text-secondary"></i>
+                    <span class="fw-semibold">{{ order.warehouse.name if order.warehouse else '—' }}</span>
+                    <span class="text-muted mx-1">•</span>
+                    <i class="bi bi-calendar-check"></i>
+                    <span>{{ order.updated_at.strftime('%d.%m.%Y') }}</span>
+                </div>
+
+                <!-- Signature Preview Box (Visual Candy) -->
+                <div class="bg-light border rounded-3 p-3 mb-3 d-flex align-items-center justify-content-center position-relative overflow-hidden" style="height: 80px; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 10px 10px;">
+                    {% if order.ppp_document and order.ppp_document.signature_image %}
+                        <img src="{{ url_for('static', filename=order.ppp_document.signature_image) }}" alt="Подпис" style="max-height: 60px; mix-blend-mode: multiply; opacity: 0.8;">
+                        <span class="position-absolute bottom-0 end-0 text-muted fst-italic pe-2 pb-1" style="font-size: 0.6rem;">подписано</span>
+                    {% else %}
+                        <span class="text-muted small fst-italic opacity-50">Няма дигитален подпис</span>
+                    {% endif %}
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="mt-auto d-flex gap-2">
+                    <!-- Details Button -->
+                    <a href="{{ url_for('orders.stock_order_ppp', order_id=order.id) }}" class="btn btn-light border fw-bold flex-grow-1 text-muted text-center">
+                        Детайли
+                    </a>
+
+                    <!-- PDF Button (Green Neon) -->
+                    {% if order.ppp_document and order.ppp_document.pdf_url %}
+                        <a href="{{ url_for('orders.stock_order_ppp_pdf', order_id=order.id) }}" target="_blank" class="btn-brand-new flex-grow-1 text-center text-decoration-none d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm rounded-3 text-white">
+                            <i class="bi bi-file-earmark-pdf"></i> PDF
+                        </a>
+                    {% else %}
+                        <button class="btn btn-light border flex-grow-1 disabled" title="Няма PDF"><i class="bi bi-file-earmark-x"></i></button>
+                    {% endif %}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <!-- TABLE VIEW -->
+      <div class="modern-card p-0 overflow-hidden shadow-sm border">
+        <div class="table-responsive">
+            <table class="table table-modern table-hover mb-0 align-middle">
+              <thead class="bg-light">
+                <tr>
+                  <th class="ps-4">Поръчка</th>
+                  <th>Клиент</th>
+                  <th>Склад / Дата</th>
+                  <th>Статус</th>
+                  <th>Подпис</th>
+                  <th class="text-end pe-4">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for order in orders %}
+                  <tr class="search-item cursor-pointer" data-search-value="{{ (order.external_id or order.id ~ ' ' ~ order.client_name) | lower }}" onclick="window.location='{{ url_for('orders.stock_order_ppp', order_id=order.id) }}'">
+                    <td class="ps-4 fw-bold font-monospace text-dark">
+                        <i class="bi bi-file-earmark-text text-primary me-2"></i>{{ order.external_id or order.id }}
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark">{{ order.client_name }}</div>
+                    </td>
+                    <td>
+                        <div class="small text-dark fw-medium">{{ order.warehouse.name if order.warehouse else '—' }}</div>
+                        <div class="small text-muted">{{ order.updated_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                    </td>
+                    <td>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">
+                            {{ status_labels.get(order.status, order.status) }}
+                        </span>
+                    </td>
+                    <td>
+                      {% if order.ppp_document and order.ppp_document.signature_image %}
+                        <div class="bg-white border rounded px-2 py-1 d-inline-block">
+                            <img src="{{ url_for('static', filename=order.ppp_document.signature_image) }}" alt="Sig" style="height: 24px; mix-blend-mode: multiply;">
+                        </div>
+                      {% else %}
+                        <span class="text-muted small">–</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                      <div class="d-flex justify-content-end gap-2">
+                          {% if order.ppp_document and order.ppp_document.pdf_url %}
+                            <a href="{{ url_for('orders.stock_order_ppp_pdf', order_id=order.id) }}" target="_blank" class="btn btn-sm btn-outline-success border rounded-3" onclick="event.stopPropagation()">
+                                <i class="bi bi-file-pdf-fill"></i>
+                            </a>
+                          {% endif %}
+                          <div class="btn btn-sm btn-light border rounded-circle">
+                              <i class="bi bi-chevron-right text-muted"></i>
+                          </div>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
+      </div>
+    {% endif %}
+
+{% else %}
+    <div class="text-center py-5 border border-2 border-dashed rounded-4 bg-white">
+        <i class="bi bi-folder2-open fs-1 text-muted opacity-25"></i>
+        <h5 class="mt-3 text-muted fw-normal">Няма налични ППП документи</h5>
+        <p class="small mb-0 text-muted">Тук ще се появят приключените и подписани нареждания.</p>
+    </div>
+{% endif %}
+</div>
+
+<style>
+    /* Green Neon Button (Consistent) */
+    .btn-brand-new {
+        background: linear-gradient(135deg, #a6cf39 0%, #7ca323 100%);
+        border: none; color: white !important; transition: all 0.2s; padding: 0.5rem 1rem;
+    }
+    .btn-brand-new:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(166, 207, 57, 0.4);
+    }
+    .cursor-pointer { cursor: pointer; }
+</style>
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Filter Script
+    document.getElementById('pppSearchDisplay')?.addEventListener('input', function(e) {
+        const val = e.target.value.toLowerCase();
+        document.querySelectorAll('.search-item').forEach(item => {
+            const text = item.getAttribute('data-search-value');
+            if(text.includes(val)) {
+                item.style.display = item.tagName === 'TR' ? 'table-row' : '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+{% endblock %}

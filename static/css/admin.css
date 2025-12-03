@@ -1,0 +1,1173 @@
+/* =========================================
+   UI/UX UPDATE v2.0 - MODERN ADMIN
+   ========================================= */
+
+/* --- 1. DARK HERO HEADER (Запазената марка) --- */
+.admin-hero-card {
+    background: #1e293b;
+    /* Тъмно синьо-сиво */
+    color: #ffffff;
+    border-radius: 16px;
+    padding: 2rem 2.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Декоративен елемент в хедъра (блясък) */
+.admin-hero-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(166, 207, 57, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+    pointer-events: none;
+}
+
+.hero-subtitle {
+    color: #a6cf39;
+    /* GStroy Green */
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    display: block;
+    opacity: 0.9;
+}
+
+.category-form-card {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 25px 45px -25px rgba(15, 23, 42, 0.8);
+}
+
+.category-thumb,
+.category-thumb-preview {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    object-fit: cover;
+}
+
+.category-thumb {
+    width: 56px;
+    height: 56px;
+}
+
+.category-thumb-preview {
+    max-height: 160px;
+}
+
+.hero-title {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+/* --- 2. INPUT FIELDS (FIX за иконите) --- */
+/* Премахваме старите Bootstrap input-group стилове за тези полета */
+.input-surface {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 14px;
+    /* Фиксирано разстояние икона-текст */
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    width: 100%;
+}
+
+.input-surface:focus-within {
+    background-color: #ffffff;
+    border-color: #a6cf39;
+    box-shadow: 0 4px 12px rgba(166, 207, 57, 0.15);
+    transform: translateY(-1px);
+}
+
+.input-surface.disabled {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.surface-icon {
+    color: #94a3b8;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    /* Гарантира, че иконата не се смачква */
+}
+
+/* Самият инпут - без рамки, заема цялото място */
+.surface-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 0;
+    margin: 0;
+}
+
+.surface-input::placeholder {
+    color: #cbd5e1;
+    font-weight: 400;
+}
+
+.form-label-top {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 8px;
+    display: block;
+    margin-left: 4px;
+}
+
+/* --- 3. CARDS & LAYOUT --- */
+.admin-card {
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    padding: 24px;
+    height: 100%;
+}
+
+.card-header-clean {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.card-header-clean i {
+    color: #a6cf39;
+    font-size: 1.3rem;
+}
+
+.card-header-clean h5 {
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+/* --- 4. PRICE BOXES (Оправени шрифтове) --- */
+.price-box {
+    padding: 20px;
+    border-radius: 14px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.price-box.primary {
+    background: #f7fce8;
+    /* Very light green */
+    border: 1px solid #d9f99d;
+}
+
+.price-box.secondary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.price-input-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+.price-input {
+    font-size: 1.8rem;
+    font-weight: 800;
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.price-currency {
+    font-weight: 700;
+    font-size: 0.9rem;
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+
+/* --- 5. BARCODE FIX --- */
+/* Контейнер за SVG-то */
+.barcode-container {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 15px;
+    background: white;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#admin-barcode {
+    width: 100%;
+    height: auto;
+    max-height: 60px;
+    /* Ограничаваме височината */
+    display: block;
+}
+
+/* --- 6. BUTTONS --- */
+.btn-brand-action {
+    background: #a6cf39;
+    color: #fff;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 50px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    box-shadow: 0 10px 25px -5px rgba(166, 207, 57, 0.5);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.btn-brand-action:hover {
+    background: #95ba32;
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px -5px rgba(166, 207, 57, 0.6);
+    color: white;
+}
+
+.btn-circle-back {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    /* Полупрозрачно на тъмен фон */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    transition: 0.2s;
+    text-decoration: none;
+}
+
+.btn-circle-back:hover {
+    background: white;
+    color: #1e293b;
+    transform: scale(1.05);
+}
+
+/* --- 7. SWITCHES --- */
+.switch-row-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.switch-row-item:last-child {
+    border-bottom: none;
+}
+
+.switch-text h6 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.switch-text span {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+/* =========================================
+   9. ADMIN PRODUCT EDIT (DARK EDITION)
+   ========================================= */
+
+/* --- DARK HERO HEADER --- */
+.admin-hero-card {
+    background: var(--brand-dark);
+    /* Използваме глобалното тъмно */
+    color: #ffffff;
+    border-radius: 20px;
+    padding: 2rem 2.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-card);
+    /* Глобална сянка */
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Декоративен блясък (Glow effect) */
+.admin-hero-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -10%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(166, 207, 57, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.hero-subtitle {
+    color: var(--brand-green);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    display: block;
+    opacity: 0.9;
+}
+
+.hero-title-large {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: #ffffff !important;
+    /* Форсираме бял цвят */
+}
+
+/* --- INPUT SURFACE (Полетата с икони) --- */
+.input-surface {
+    background-color: var(--brand-bg);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 14px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    width: 100%;
+}
+
+.input-surface:focus-within {
+    background-color: #ffffff;
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 4px rgba(166, 207, 57, 0.15);
+    /* Soft Glow */
+    transform: translateY(-1px);
+}
+
+.input-surface.disabled {
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.surface-icon {
+    color: #94a3b8;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    transition: color 0.2s;
+}
+
+.input-surface:focus-within .surface-icon {
+    color: var(--brand-green);
+}
+
+.surface-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    color: var(--brand-dark);
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0;
+    margin: 0;
+}
+
+.surface-input::placeholder {
+    color: #cbd5e1;
+    font-weight: 400;
+}
+
+.form-label-top {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+    color: var(--brand-gray);
+    margin-bottom: 8px;
+    display: block;
+    margin-left: 4px;
+}
+
+/* --- PRICE BOXES --- */
+.price-box {
+    padding: 20px;
+    border-radius: 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.price-box.primary {
+    background: linear-gradient(135deg, #f7fce8 0%, #ffffff 100%);
+    border: 1px solid #d9f99d;
+}
+
+.price-box.secondary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.price-input-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+.price-input {
+    font-size: 1.8rem;
+    font-weight: 800;
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    color: var(--brand-dark);
+    font-family: "Inter", sans-serif;
+}
+
+.price-currency {
+    font-weight: 700;
+    font-size: 0.9rem;
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+
+/* --- BARCODE CONTAINER --- */
+.barcode-container {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 15px;
+    background: white;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#admin-barcode {
+    width: 100%;
+    height: auto;
+    max-height: 60px;
+    display: block;
+}
+
+/* --- BUTTONS --- */
+.btn-brand-glow {
+    background: var(--brand-green);
+    background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-green-dark) 100%);
+    color: #fff;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 50px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    box-shadow: 0 10px 25px -5px rgba(166, 207, 57, 0.5);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 2;
+}
+
+.btn-brand-glow:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 15px 35px -5px rgba(166, 207, 57, 0.6);
+    color: white;
+}
+
+.btn-circle-glass {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+    backdrop-filter: blur(5px);
+}
+
+.btn-circle-glass:hover {
+    background: white;
+    color: var(--brand-dark);
+    transform: scale(1.1);
+}
+
+/* --- ERP CONSOLE (Dark) --- */
+.erp-console-box {
+    background: var(--brand-dark);
+    color: #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-card);
+}
+
+.erp-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.erp-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.erp-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.erp-key {
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.erp-val {
+    color: var(--brand-green);
+    text-align: right;
+}
+
+/* =========================================
+   10. ADMIN DASHBOARD (HOME)
+   ========================================= */
+
+/* --- HERO SECTION EXPANDED --- */
+.dashboard-hero {
+    background: var(--brand-dark);
+    border-radius: 24px;
+    padding: 3rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Background Texture */
+.dashboard-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(166, 207, 57, 0.1) 0%, rgba(0, 0, 0, 0) 60%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.hero-text-content {
+    position: relative;
+    z-index: 2;
+    max-width: 600px;
+}
+
+.hero-welcome {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.03em;
+}
+
+.hero-desc {
+    color: #94a3b8;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+/* --- HERO STATS (GLASS CARDS) --- */
+.hero-stats-wrapper {
+    display: flex;
+    gap: 1.5rem;
+    position: relative;
+    z-index: 2;
+    flex-wrap: wrap;
+}
+
+.stat-glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px;
+    min-width: 140px;
+    transition: transform 0.3s ease, border-color 0.3s;
+}
+
+.stat-glass:hover {
+    transform: translateY(-5px);
+    border-color: rgba(166, 207, 57, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.stat-glass-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: #94a3b8;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.stat-glass-val {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- NAVIGATION CARDS --- */
+.section-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 3rem 0 1.5rem 0;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.dash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.nav-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 2rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Hover Accent Bar */
+.nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.nav-card:hover::before {
+    opacity: 1;
+}
+
+.nav-card.green:hover::before {
+    background: var(--brand-green);
+}
+
+.nav-card.blue:hover::before {
+    background: #3b82f6;
+}
+
+.nav-card.orange:hover::before {
+    background: #f97316;
+}
+
+/* Icons */
+.nav-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    transition: transform 0.3s;
+}
+
+.nav-card:hover .nav-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.icon-green {
+    background: #f0fdf4;
+    color: var(--brand-green-dark);
+}
+
+.icon-blue {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.icon-orange {
+    background: #fff7ed;
+    color: #f97316;
+}
+
+.nav-content h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--brand-dark);
+    margin: 0 0 0.5rem 0;
+}
+
+.nav-content p {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Arrow Reveal */
+.nav-arrow {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    color: #cbd5e1;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.3s;
+}
+
+.nav-card:hover .nav-arrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Buttons */
+.btn-glass-hero {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-glass-hero:hover {
+    background: #fff;
+    color: var(--brand-dark);
+}
+
+.btn-glass-hero.primary {
+    background: #fff;
+    color: var(--brand-dark);
+    border: none;
+}
+
+.btn-glass-hero.primary:hover {
+    background: #f1f5f9;
+}
+
+/* =========================================
+   11. CATEGORIES MANAGER
+   ========================================= */
+
+/* Дървовиден елемент (Карта) */
+.tree-card {
+    background: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.tree-card::before {
+    content: '';
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    width: 12px;
+    height: 2px;
+    background: #e2e8f0;
+    display: none;
+    /* Показва се само ако има margin-left */
+}
+
+/* Ако елементът е навътре, показваме връзката */
+.tree-card[style*="margin-left"]::before {
+    display: block;
+}
+
+.tree-card:hover {
+    transform: translateX(4px);
+    border-color: var(--brand-green);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.tree-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.tree-content h6 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--brand-dark);
+}
+
+.tree-content small {
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+/* Действия (Edit бутон) */
+.tree-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.tree-card:hover .tree-actions {
+    opacity: 1;
+}
+
+.btn-icon-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    background: #f1f5f9;
+    transition: all 0.2s;
+}
+
+.btn-icon-sm:hover {
+    background: var(--brand-dark);
+    color: #fff;
+}
+
+/* Sticky Form Sidebar */
+.sticky-form-panel {
+    position: sticky;
+    top: 2rem;
+    /* Разстояние от горния край на екрана */
+    z-index: 10;
+}
+
+.form-header-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* --- COMPETITOR PRICE BLOCK --- */
+.competitor-row {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.competitor-row:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 12px 25px rgba(15, 23, 42, 0.08);
+}
+
+.competitor-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #e0f2fe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.competitor-name strong {
+    font-size: 0.95rem;
+}
+
+.price-delta {
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.fb-link {
+    text-decoration: none;
+}
+
+/* --- COMPETITOR TOGGLE STYLES --- */
+
+/* Trigger Card */
+.competitor-trigger {
+    transition: all 0.2s ease-in-out;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    cursor: pointer;
+}
+
+.competitor-trigger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05) !important;
+    background-color: #ffffff;
+    border-color: #a6cf39;
+    /* Brand Green Accent on hover */
+}
+
+/* Icon Box Styling */
+.bg-blue-soft {
+    background-color: #eff6ff;
+}
+
+.icon-box-soft {
+    transition: transform 0.2s;
+}
+
+.competitor-trigger:hover .icon-box-soft {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* Chevron Rotation Animation */
+.transition-icon {
+    transition: transform 0.3s ease;
+}
+
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+/* Custom Scrollbar for the list */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Update to existing competitor row to look good inside light background */
+.competitor-row {
+    background: white !important;
+    /* Force white inside the gray collapse area */
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+/* --- UTILITIES FOR COMPETITOR ROWS --- */
+.hover-shadow-sm:hover {
+    box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .075) !important;
+}
+
+.transition-all {
+    transition: all 0.2s ease-in-out;
+}
+
+.icon-box-sm {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- FORM SWITCHES (BRAND GREEN) --- */
+.form-check-input:checked {
+    background-color: var(--brand-green);
+    border-color: var(--brand-green);
+}
+
+.form-check-input:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 0.25rem rgba(166, 207, 57, 0.25);
+}
+
+/* --- CUSTOM SELECT ARROW --- */
+select.surface-input {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-size: 16px 12px;
+}
+
+/* Fix for Firefox/Standard */
+select.surface-input::-ms-expand {
+    display: none;
+}
+
+/* --- CURSOR FIXES --- */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.stretched-link::after {
+    z-index: 1;
+}
+
+/* --- TEXTAREA & GENERIC INPUTS --- */
+.form-control:focus {
+    border-color: var(--brand-green);
+    box-shadow: 0 0 0 0.25rem rgba(166, 207, 57, 0.25);
+}
+
+/* Custom scrollbar for textareas */
+textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+textarea::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+textarea::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* --- GLOBAL CURSOR FIXES --- */
+.form-check-input,
+.form-switch .form-check-input,
+.btn,
+button,
+a,
+select {
+    cursor: pointer;
+}

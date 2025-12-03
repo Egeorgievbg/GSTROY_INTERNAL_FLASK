@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Начало | GSTROY ERP{% endblock %}
+
+{% block content %}
+
+
+<!-- 1. HERO (The Wow) -->
+<div class="hero-glass fade-in">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    
+    <div class="row align-items-center">
+        <!-- Welcome Text -->
+        <div class="col-lg-7 col-xl-8 mb-4 mb-lg-0">
+            <div class="d-inline-block px-3 py-1 rounded-pill bg-white border shadow-sm text-success fw-bold small mb-3">
+                <i class="bi bi-circle-fill me-1 text-success pulse-animation" style="font-size: 8px;"></i> Система онлайн
+            </div>
+            <h1 class="hero-title">Здравей, {{ current_user.full_name.split(' ')[0] if current_user.full_name else 'колега' }}!</h1>
+            <p class="hero-subtitle">
+                Добре дошли в командния център - тук следим наличности, логистика и нареждания в реално време.
+                <br class="d-none d-md-block">
+                Работете уверено с изчистени списъци и актуални задачи.
+            </p>
+            
+            <div class="d-flex flex-wrap gap-3">
+                <a href="{{ url_for('logistics.simple_list_new') }}" class="btn-glass-action">
+                    <div class="rounded-circle bg-success bg-opacity-10 p-2 d-flex"><i class="bi bi-plus-lg"></i></div>
+                    <span>Нов списък</span>
+                </a>
+                <a href="{{ url_for('logistics.receive') }}" class="btn-glass-action">
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-2 d-flex"><i class="bi bi-qr-code-scan"></i></div>
+                    <span>Приеми стока</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Live Stats Widget (Desktop Only) -->
+        <div class="col-lg-5 col-xl-4 d-none d-lg-block">
+            <div class="row g-3">
+                <div class="col-6">
+                    <div class="stats-widget">
+                        <div class="stat-big">{{ status_counts.get('assigned', 0) if status_counts else '0' }}</div>
+                        <div class="stat-desc">Назначени задачи</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-widget">
+                        <div class="stat-big text-success">Активно</div>
+                        <div class="stat-desc">Готово за действие</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. MODULES GRID (The Functional Beauty) -->
+<div class="fade-in" style="animation-delay: 0.1s;">
+    
+    <div class="row g-4">
+        
+        <!-- COLUMN 1: INVENTORY -->
+        <div class="col-md-6 col-xl-4">
+            <div class="sec-label">
+                <i class="bi bi-box-seam text-primary"></i> Склад <div class="sec-line"></div>
+            </div>
+            <div class="d-grid gap-3">
+                <a href="{{ url_for('products.products') }}" class="module-card">
+                    <div class="module-icon icon-blue"><i class="bi bi-search"></i></div>
+                    <div class="module-text">
+                        <h5>Продукти</h5>
+                        <span>Търсете артикули, вижте наличности и локации с едно кликване.</span>
+                    </div>
+                </a>
+                <a href="{{ url_for('logistics.simple_list_index') }}" class="module-card">
+                    <div class="module-icon icon-blue"><i class="bi bi-list-check"></i></div>
+                    <div class="module-text">
+                        <h5>Лайт списъци</h5>
+                        <span>Бърза инвентаризация за вашия екип на място.</span>
+                    </div>
+                </a>
+                <a href="{{ url_for('products.import_products') }}" class="module-card">
+                    <div class="module-icon icon-gray"><i class="bi bi-cloud-upload"></i></div>
+                    <div class="module-text">
+                        <h5>Импорт</h5>
+                        <span>Обновете базата от CSV експорти от ERP системата.</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- COLUMN 2: LOGISTICS -->
+        <div class="col-md-6 col-xl-4">
+            <div class="sec-label">
+                <i class="bi bi-truck text-success"></i> Логистика <div class="sec-line"></div>
+            </div>
+            <div class="d-grid gap-3">
+                <a href="{{ url_for('logistics.pallet_list') }}" class="module-card">
+                    <div class="module-icon icon-green"><i class="bi bi-boxes"></i></div>
+                    <div class="module-text">
+                        <h5>Палети</h5>
+                        <span>Следете визуално всички палетни групи и статуса им.</span>
+                    </div>
+                </a>
+                <a href="{{ url_for('logistics.transfers') }}" class="module-card">
+                    <div class="module-icon icon-green"><i class="bi bi-arrow-left-right"></i></div>
+                    <div class="module-text">
+                        <h5>Трансфери</h5>
+                        <span>Планирайте и следете движението между складове.</span>
+                    </div>
+                </a>
+                <a href="{{ url_for('scanning.scan_task_list') }}" class="module-card">
+                    <div class="module-icon icon-green"><i class="bi bi-upc-scan"></i></div>
+                    <div class="module-text">
+                        <h5>Scan задачи</h5>
+                        <span>Мобилен терминал за задачи за сканиране и проверка.</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- COLUMN 3: ORDERS -->
+        <div class="col-md-12 col-xl-4">
+            <div class="sec-label">
+                <i class="bi bi-lightning-charge text-warning"></i> Нареждания <div class="sec-line"></div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 col-xl-12">
+                    <a href="{{ url_for('orders.stock_orders_dashboard') }}" class="module-card">
+                        <div class="module-icon icon-orange"><i class="bi bi-kanban"></i></div>
+                        <div class="module-text">
+                            <h5>Складови поръчки</h5>
+                            <span>Контролирайте всички stock orders с една страница.</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-6 col-xl-12">
+                    <a href="{{ url_for('orders.stock_orders_assigned') }}" class="module-card">
+                        <div class="module-icon icon-orange"><i class="bi bi-person-check"></i></div>
+                        <div class="module-text">
+                            <h5>Присвоени</h5>
+                            <span>Вашите текущи задачи, в процес и готови за действие.</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-12">
+                    <a href="{{ url_for('orders.ppp_documents') }}" class="module-card">
+                        <div class="module-icon icon-purple"><i class="bi bi-file-earmark-text"></i></div>
+                        <div class="module-text">
+                            <h5>PPP документи</h5>
+                            <span>Протоколи за подпис и предаване на поръчки.</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

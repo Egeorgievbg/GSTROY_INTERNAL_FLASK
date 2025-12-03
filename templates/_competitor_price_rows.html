@@ -1,0 +1,62 @@
+{% macro competitor_price_rows(base_price, competitor_prices, empty_message='Няма данни') %}
+{% if competitor_prices %}
+<div class="d-flex flex-column gap-2">
+    {% for comp in competitor_prices %}
+    {% set diff = comp.price - base_price %}
+    {% set is_cheaper = diff < 0 %} {% set is_more_expensive=diff> 0 %}
+
+        <div
+            class="d-flex align-items-center justify-content-between p-3 bg-white rounded-3 border hover-shadow-sm transition-all position-relative">
+            <!-- Left: Name & Link -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="icon-box-sm rounded-circle d-flex align-items-center justify-content-center
+                            {{ 'bg-danger bg-opacity-10 text-danger' if is_cheaper else 'bg-light text-muted' }}"
+                    style="width: 36px; height: 36px;">
+                    <i class="bi {{ 'bi-shop' if not comp.url else 'bi-globe' }}"></i>
+                </div>
+                <div>
+                    <div class="fw-bold text-dark lh-1">
+                        {% if comp.url %}
+                        <a href="{{ comp.url }}" target="_blank" class="text-decoration-none text-dark stretched-link">
+                            {{ comp.name }}
+                        </a>
+                        {% else %}
+                        {{ comp.name }}
+                        {% endif %}
+                    </div>
+                    <small class="text-muted" style="font-size: 0.75rem;">
+                        <i class="bi bi-clock me-1"></i>{{ comp.last_checked or 'N/A' }}
+                    </small>
+                </div>
+            </div>
+
+            <!-- Right: Price & Diff -->
+            <div class="text-end">
+                <div class="fw-bold fs-6 text-dark font-monospace">
+                    {{ "%.2f"|format(comp.price) }} <small class="text-muted fw-normal">{{ comp.currency or 'лв.'
+                        }}</small>
+                </div>
+
+                {% if base_price %}
+                <div class="small fw-bold {{ 'text-danger' if is_cheaper else ('text-success' if is_more_expensive else 'text-muted') }}"
+                    style="font-size: 0.75rem;">
+                    {% if is_cheaper %}
+                    <i class="bi bi-arrow-down-short"></i>{{ "%.2f"|format(diff|abs) }} по-евтино
+                    {% elif is_more_expensive %}
+                    <i class="bi bi-arrow-up-short"></i>{{ "%.2f"|format(diff) }} по-скъпо
+                    {% else %}
+                    <span class="text-muted">= Равна цена</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-4 text-muted">
+    <i class="bi bi-inbox fs-4 mb-2 d-block opacity-50"></i>
+    {{ empty_message }}
+</div>
+{% endif %}
+{% endmacro %}

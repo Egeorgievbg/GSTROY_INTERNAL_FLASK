@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Склад: {{ warehouse.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 1200px;">
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <span class="text-uppercase fw-bold text-muted small" style="letter-spacing: 0.3em;">Админ</span>
+            <h1 class="m-0">{{ warehouse.name }}</h1>
+            <p class="text-muted small mb-0">{{ warehouse.code }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.warehouses_panel') }}" class="btn btn-outline-secondary">Всички складове</a>
+            <form method="post" action="{{ url_for('admin.delete_warehouse', warehouse_id=warehouse.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-danger">Изтрий</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">Редактирай склад</h5>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Име</label>
+                            <input type="text" class="form-control" name="name" value="{{ warehouse.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Код</label>
+                            <input type="text" class="form-control" name="code" value="{{ warehouse.code }}" required>
+                        </div>
+                        <div class="mb-3">
+                        <label class="form-label small text-uppercase text-muted">Описание</label>
+                        <textarea class="form-control" name="description" rows="3">{{ warehouse.description or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-uppercase text-muted">URL на етикетен сървър</label>
+                        <input class="form-control" type="url" name="printer_server_url" value="{{ warehouse.printer_server_url or '' }}" placeholder="http://127.0.0.1:8001/">
+                        <div class="small text-muted">Адресът на сървъра, който ще приема заявки за печат на етикети.</div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="warehouse-active" {% if warehouse.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="warehouse-active">Активен</label>
+                    </div>
+                        <button class="btn btn-brand-new w-100">Запази</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">Локации</h5>
+                    <div class="row g-3">
+                        {% for location in warehouse.locations %}
+                        <div class="col-12">
+                            <div class="card mb-2 border-0 bg-light">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ location.name }}</strong> <small class="text-muted">{{ location.code }}</small>
+                                        <div class="small text-muted">{{ location.description or 'Няма описание.' }}</div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.location_detail', location_id=location.id) }}">Редактирай</a>
+                                        <form method="post" action="{{ url_for('admin.delete_location', location_id=location.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Изтрий</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if not warehouse.locations %}
+                    <p class="text-muted small">Все още няма добавени локации.</p>
+                    {% endif %}
+                    <hr>
+                    <h6 class="fw-bold mb-3">Добави локация</h6>
+                    <form method="post" action="{{ url_for('admin.create_location', warehouse_id=warehouse.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Име</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Код</label>
+                            <input type="text" class="form-control" name="code" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Описание</label>
+                            <textarea class="form-control" name="description" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-uppercase text-muted">Родителска локация</label>
+                            <select class="form-select" name="parent_id">
+                                <option value="">Няма</option>
+                                {% for loc in warehouse.locations %}
+                                <option value="{{ loc.id }}">{{ loc.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="loc-active" name="is_active" checked>
+                            <label class="form-check-label" for="loc-active">Активна</label>
+                        </div>
+                        <button class="btn btn-light w-100 border">Добави локация</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

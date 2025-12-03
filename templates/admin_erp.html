@@ -1,0 +1,37 @@
+﻿{% extends "base.html" %}
+
+{% block title %}ERP РРЅС‚РµРіСЂР°С†РёРё вЂ“ РђРґРјРёРЅ РїР°РЅРµР»{% endblock %}
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="admin-panel">
+  <div class="hero-glass mb-4">
+    <div>
+      <p class="small text-uppercase text-muted mb-1">ERP РёРЅС‚РµРіСЂР°С†РёРё</p>
+      <h1 class="hero-title mb-2">РЎРІСЉСЂР·Р°РЅРё СѓСЃР»СѓРіРё</h1>
+      <p class="text-muted mb-0">РќР°Р±Р»СЋРґР°РІР°Р№ СЃС‚Р°С‚СѓСЃРёС‚Рµ, СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРёС‚Рµ Рё РїСЂРѕР±Р»РµРјРёС‚Рµ РЅР° Р±РµРєРµРЅРґ СѓСЃР»СѓРіРёС‚Рµ.</p>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    {% for service in services %}
+      <div class="col-md-4">
+        <div class="card admin-card p-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="fs-6 mb-0">{{ service.name }}</h5>
+            <span class="badge {% if service.status == 'Online' %}bg-success{% else %}bg-secondary{% endif %}">{{ service.status }}</span>
+          </div>
+          <div class="text-muted small mt-2">РџРѕСЃР»РµРґРЅРѕ sync: {{ service.last_synced }}</div>
+          <div class="text-muted small mb-3">Р›Р°С‚РµРЅС‚РЅРѕСЃС‚: {{ service.latency }}</div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary flex-grow-1">РЎРёРЅС…СЂРѕРЅРёСЂР°Р№</button>
+            <button class="btn btn-sm btn-outline-secondary flex-grow-1">РСЃС‚РѕСЂРёСЏ</button>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

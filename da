@@ -1,0 +1,174 @@
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'database.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'helpers.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'models.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'static/css/admin.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'static/css/base.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'static/styles.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/_stock_order_cards.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/admin_panel.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/admin_warehouse_detail.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/base.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/pallet_detail.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/pallet_list.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/pallet_new.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/ppp_documents.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/products_partial.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/receive.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/scan_task_detail.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/simple_list_detail.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/simple_list_form.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/simple_list_index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/stock_order_handover.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/stock_order_ppp.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/stock_order_prepare.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/stock_orders_assigned.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/stock_orders_dashboard.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/transfer_form.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'templates/transfers.html', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/README.md b/README.md[m
+[1mindex 793b60c..c6766eb 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -1,86 +1,77 @@[m
+[31m-# GSTROY Pallet & PickPoint Demo[m
+[32m+[m[32m# GSTROY Internal ERP Demo[m
+ [m
+[31m-Demo приложение, което обединява класическите палетни процеси и новия PickPoint (Stock Orders) модул. Кодът е изчистен, защитен с реален login и достатъчно документиран, за да бъде пренесен лесно в Django администрацията.[m
+[32m+[m[32mКомплектът е почти продукционна среда за проследяване на складови поръчки, инвентарни сканирания и администраторски операции за GSTROY Pallet & PickPoint. Решението е изградено върху Flask, SQLAlchemy, Bootstrap 5 и вътрешни микросервизни Routеs (PPP/ERP, принтер хъб, документни потоци).[m
+[32m+[m
+[32m+[m[32m## Архитектура в резюме[m
+[32m+[m
+[32m+[m[32m1. **Flask + blueprints**: `app/blueprints/` съдържа модулите `admin`, `catalog`, `logistics`, `orders`, `products`, `scanning` и `main`. Всеки описва своята UI логика, шаблони и API тунели, плюс обвързва общи services (`app/services/order_tasks.py`).[m
+[32m+[m[32m2. **Database + models**: `database.py` и `models.py` описват SQLAlchemy измеренията (продукти, потребители, поръчки, задачи, принтери...) и bootstrap seed данни (`init_db()`), така че демото винаги стартира с валидна структура.[m
+[32m+[m[32m3. **Printer service**: `printer_service/` е независим blueprint под `/printer-hub`, който проксира заявките към вътрешния label server, филтрира достъпа на потребителя и затяга копията (виж `docs/printer-module.md` за подробности).[m
+[32m+[m[32m4. **Интеграция с Versus ERP**: Payload генератори (`app/services/order_tasks.py`) подготвят JSON за вход/изход, а UI (templates `stock_orders_*`) визуализира статуси, KPI панели и състояния на екипи.[m
+[32m+[m[32m5. **Документация**: Всички детайли за структурата са описани в `docs/` (архитектурата, списък със blueprints и принтер модула).[m
+ [m
+ ## Бърз старт[m
+ [m
+ ```powershell[m
+[31m-.\setup.ps1          # инсталира зависимости във .venv[m
+[31m-.\setup.ps1 -Run     # инсталация + стартиране на python app.py[m
+[32m+[m[32m.\\setup.ps1              # създава .venv, инсталира зависимостите[m
+[32m+[m[32m.\\setup.ps1 -Run         # стартира dev сървъра[m
+ ```[m
+ [m
+ ```bash[m
+[31m-./setup.sh           # Linux/macOS/Git Bash[m
+[31m-./setup.sh run[m
+[32m+[m[32m./setup.sh                # Linux/macOS/Git Bash[m
+[32m+[m[32m./setup.sh run            # стартира dev сървъра[m
+ ```[m
+ [m
+[31m-Ръчни стъпки (ако предпочитате): `python -m venv .venv && source/.venv/Scripts/activate && pip install -r requirements.txt && python app.py`.[m
+[31m-[m
+[31m-## Конфигурация[m
+[31m-[m
+[31m-| Променлива | По подразбиране | Описание |[m
+[31m-| --- | --- | --- |[m
+[31m-| `ERP_DEMO_SECRET_KEY` | `change-me` | Flask secret (cookie/CSRF). Задайте уникална стойност преди да споделяте демото. |[m
+[31m-| `ERP_DEMO_DATABASE_URL` | `sqlite:///erp_demo.db` | Връзка към база. Поддържа SQLite и всички SQLAlchemy драйвери (PostgreSQL/MySQL и др.). |[m
+[31m-| `ERP_DEMO_DEFAULT_PASSWORD` | `demo1234` | Парола за seed акаунтите. |[m
+[31m-| `ERP_DEMO_MAX_UPLOAD_MB` | `4` | Горна граница за CSV импорти. |[m
+[31m-| `ERP_DEMO_SIGNATURE_MAX_KB` | `512` | Максимален размер на подпис (PPP). |[m
+[31m-[m
+[31m-## Безопасност и роли[m
+[31m-[m
+[31m-- Използваме `Flask-Login` + `Flask-WTF` за автентикация и CSRF защита.[m
+[31m-- Всеки POST формуляр получава `csrf_token` автоматично; всички `fetch` заявки подават `X-CSRFToken` header.[m
+[31m-- Навигацията показва текущия потребител и бутон за излизане. Dropdown-ът за „смяна на потребител“ е премахнат.[m
+[31m-- Seed акаунти: `planner`, `builder`, `furniture`, `laminate`, `shop` (парола `demo1234`, ако не е променено). Същите роли ще бъдат използвани и от Django екипа.[m
+[31m-- CSV импорти и подписи се валидират (разрешени MIME типове, размер, само PNG). Подписите се съхраняват с рандом файлови имена.[m
+[31m-- Всички JSON/CSV download endpoints са достъпни само след login.[m
+[31m-[m
+[31m-## Архитектура (за Django екипа)[m
+[32m+[m[32mАлтернатива: `python -m venv .venv && ./.venv/Scripts/activate && pip install -r requirements.txt && python app.py`[m
+ [m
+[31m-### Основни слоеве[m
+[32m+[m[32m## Зависимости[m
+ [m
+[31m-1. **SQLAlchemy модели** (`models.py`) – 100% съвместими с PostgreSQL/MySQL. Могат директно да се пренапишат като Django models.[m
+[31m-2. **`database.py`** – инициализация + seed данни. Съдържа helper-и като `ensure_column` и `_default_password_hash`. При миграция към Django препоръката е seed логиката да се премести в Django data migrations/fixtures.[m
+[31m-3. **`app.py`** – комбинира:[m
+[31m-   - Helper функции (генериране на кодове, агрегиране на статуса на поръчки, PPP PDF/подпис, CSV/QR, mobility-friendly UI статистики).[m
+[31m-   - Flask route-ове, разделени по домейн: продукти, сканирания, PickPoint (dashboard, assign/take, prepare, handover/PPP), палети/трансфери.[m
+[31m-   - API endpoints (`/stock-orders/<id>/erp-input|output`, `/scan-tasks/<id>/events|export`, `/products/export`).[m
+[31m-4. **Шаблони** – Bootstrap 5, responsive, акцент върху мобилни устройства. Карти вместо „тежки“ таблици, големи бутони, sticky summary компоненти.[m
+[32m+[m[32m- `Flask==3.0.3`[m
+[32m+[m[32m- `Flask-Login==0.6.3`[m
+[32m+[m[32m- `Flask-WTF==1.2.1`[m
+[32m+[m[32m- `SQLAlchemy==2.0.23`[m
+[32m+[m[32m- `qrcode==7.4.2`[m
+[32m+[m[32m- `Pillow==10.1.0`[m
+[32m+[m[32m- `reportlab==4.0.8`[m
+ [m
+[31m-### Какво да прехвърлите към Django[m
+[32m+[m[32m## Конфигурационни променливи[m
+ [m
+[31m-- **Модели и seed данни:** директно от `models.py`/`database.py`. Може да използвате Django fixtures за начални продукти/складове/потребители.[m
+[31m-- **Сервизна логика:** helper функциите в `app.py` (напр. `generate_ppp_pdf`, `ensure_scan_task_for_order`, `calculate_list_totals`) могат да бъдат разделени в отделни Django services или Celery задачи.[m
+[31m-- **Шаблони:** компонентите в `templates/` са изцяло Jinja, което е близо до Django templates. Повечето блокове могат да се копират 1:1.[m
+[31m-- **API контракт:** двата ERP payload endpoints връщат JSON, който трябва да се поддържа и в Django. Вижте функциите `stock_order_erp_input_payload` и `stock_order_erp_output_payload` за точния формат.[m
+[32m+[m[32m| Променлива | Стойност по подразбиране | Описание |[m
+[32m+[m[32m|------------|---------------------------|----------|[m
+[32m+[m[32m| `ERP_DEMO_SECRET_KEY` | `change-me` | Секрет за сесии и CSRF. |[m
+[32m+[m[32m| `ERP_DEMO_DATABASE_URL` | `sqlite:///erp_demo.db` | Път към SQLite файл или друг SQLAlchemy URL. |[m
+[32m+[m[32m| `ERP_DEMO_DEFAULT_PASSWORD` | `demo1234` | Парола за seed потребителите (`planner`, `builder`, …). |[m
+[32m+[m[32m| `ERP_DEMO_MAX_UPLOAD_MB` | `4` | Максимален размер на CSV импорти (MB). |[m
+[32m+[m[32m| `ERP_DEMO_SIGNATURE_MAX_KB` | `512` | Максимален размер на PNG подпис (PPP). |[m
+ [m
+[31m-## UX насоки[m
+[32m+[m[32m## Структура на проекта[m
+ [m
+[31m-- Всички основни екрани са оптимизирани за телефони/скенери: големи бутони, карти, sticky суми, responsive таблици.[m
+[31m-- Подписът при handover използва canvas, който е responsive и ограничава размер/формат.[m
+[31m-- Navbar съдържа само необходимите линкове за мобилен поток + шорткът към Receive.[m
+[31m-- Допълнителни JSON модали („ERP payload“) могат да бъдат повторно използвани в Django чрез fetch + modal компонент.[m
+[32m+[m[32m- `app/__init__.py`: фабрика (`create_app`) и регистрация на всички blueprints и прило-жни услуги (`printer_service`, csrf, login).[m
+[32m+[m[32m- `app/blueprints/`: отделни модули по домейн (admin/catalog/orders/etc.). Всеки има собствени шаблони, данни и helper функции. Допълнително `catalog_sync.py`/`catalog_utils.py` предоставят нормализация и registry към каталозите.[m
+[32m+[m[32m- `app/services/order_tasks.py`: споделени logics (статуси на поръчки, scan tasks, ERP payloads).[m
+[32m+[m[32m- `constants.py` / `gstroy_constants.py`: дефиниции на статуси, типове, CSV полета, PDF шрифтове.[m
+[32m+[m[32m- `database.py`: миграции/seed-ове, helper-и за уникални кодове (LST/PLT/TRF) и дефинирани FK зависимости.[m
+[32m+[m[32m- `printer_service/`: API за принтери; препраща към вътрешен label server (`config -> PRINTER_SERVER_URL`).[m
+[32m+[m[32m- `templates/` / `static/`: интерфейсните страници и стилове.[m
+ [m
+[31m-## Какво да очаквате при интеграция[m
+[32m+[m[32m## Документация[m
+ [m
+[31m-1. **Замяна на Flask с Django:** логическите функции могат да станат Django views/services; CSRF/auth вече са налични в Django, така че опитайте да запазите същия contract.[m
+[31m-2. **База:** препоръчително е да използвате PostgreSQL. Seed данните са достатъчни, за да се заредят всички сценарии (продукти, складове, stock orders, PPP документи).[m
+[31m-3. **Автоматични кодове:** генераторите вече са collision-safe (`LST/PLT/TRF-YYYYMMDD-XXXXXX`). Ако ви трябва ERP специфичен формат, адаптирайте `_generate_unique_code`.[m
+[31m-4. **Интерфейс към други системи:** ERP JSON payloads, CSV import/export и PPP PDF са изолирани функции – може да ги повиквате от Django admin actions или Celery задачи.[m
+[31m-5. **Разширения:** Flask проектът използва `Flask-Login`, `Flask-WTF`, `qrcode`, `reportlab`. В Django еквиваленти има (auth, forms, qrcode libs, reportlab за PDF).[m
+[32m+[m[32m- `docs/architecture.md`: високо ниво архитектура и как компонентите работят заедно.[m
+[32m+[m[32m- `docs/blueprints.md`: списък на blueprints, тяхната отговорност и основни маршрути.[m
+[32m+[m[32m- `docs/printer-module.md`: описание на принтер хъба, сигурността и взаимодействието със сървъра.[m
+ [m
+[31m-## Полезни команди[m
+[32m+[m[32m## Работа с проекта[m
+ [m
+[31m-- `python app.py` – development server (по подразбиране `0.0.0.0:5000`).[m
+[31m-- `pytest` няма конфигуриран тест сет, но helper-ите са чисти функции и лесно се покриват.[m
+[31m-- `pip install -r requirements.txt` – нови зависимости: `Flask-Login`, `Flask-WTF` за auth/CSRF.[m
+[32m+[m[32m1. Запазете seed данни: `python -m flask run --reload` в dev среда и проверете `/admin`, `/stock-orders`, `/scan-tasks`.[m
+[32m+[m[32m2. Админ потребители: `planner`, `builder`, `furniture`, `laminate`, `shop` (парола `demo1234`), `admin` (ако е добавен).[m
+[32m+[m[32m3. Принтер хъб: изисква `assigned_warehouse` на потребителя; за всеки принтер се настройва IP/URL (`templates/product_detail.html` и `templates/pallet_detail.html` използват `/printer-hub/print-*`).[m
+ [m
+[31m-## Чести въпроси[m
+[32m+[m[32m## Пускане в продукция[m
+ [m
+[31m-- **Защо все още използваме SQLite?** Само за демо. Настройте `ERP_DEMO_DATABASE_URL` към PostgreSQL/MySQL и стартирайте `database.py:init_db()` – SQLAlchemy ще създаде схемата.[m
+[31m-- **Може ли да изключим login по време на презентация?** Не – демото трябва да отразява реалистичния flow. Ако е нужно, задайте лесни пароли чрез `ERP_DEMO_DEFAULT_PASSWORD`.[m
+[31m-- **Как да сменим seed данните?** Редактирайте списъците в `database.py` (products, warehouses, stock orders). При първо стартиране базата се seed-ва; после можете да добавяте динамични записи през UI.[m
+[32m+[m[32m- Използвайте WSGI сървър (Gunicorn/Hypercorn) и настройте `ERP_DEMO_DATABASE_URL` към PostgreSQL/MySQL.[m
+[32m+[m[32m- Осигурете SSL, дефинирайте webhook за ERP (в `app/services/order_tasks.py`) и синхронизирайте `PPP_STATIC_DIR`.[m
+[32m+[m[32m- Инвестирайте в документация на `docs/` и измервайте логовете от `printer_service` (timeout). Зависимостите са минимални и лесни за поддръжка.[m
+ [m
+ ---[m
+ [m
+[31m-Въпроси или нужда от помощ при порт към Django – допълнете issue/коментар и ще помогнем. Умишлено оставихме кода модулен и „чист“, за да улесни следващия етап. Успех! 😊[m
+\ No newline at end of file[m
+[32m+[m[3

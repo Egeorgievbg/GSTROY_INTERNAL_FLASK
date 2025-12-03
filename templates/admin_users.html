@@ -1,0 +1,261 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Потребители – Админ панел{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Тук се предполага, че зареждаш основния CSS файл, който ми даде -->
+<style>
+    /* --- ADMIN SPECIFIC OVERRIDES (Using Brand Vars) --- */
+    
+    /* 1. Dark Admin Hero - базиран на твоите променливи */
+    .admin-brand-hero {
+        background: linear-gradient(135deg, var(--brand-dark) 0%, #1e293b 100%);
+        border-radius: 24px;
+        padding: 2.5rem 3rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .admin-brand-hero::before {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; bottom: 0; left: 0;
+        background-image: radial-gradient(circle at 90% 10%, rgba(166, 207, 57, 0.15), transparent 40%);
+        pointer-events: none;
+    }
+
+    .hero-badge-caps {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--brand-green); /* Brand Green Text */
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    /* 2. User Avatar Style */
+    .brand-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px; /* Squircle */
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        color: var(--brand-dark);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1rem;
+        border: 2px solid #fff;
+        box-shadow: var(--shadow-subtle);
+    }
+    
+    .brand-avatar.admin {
+        background: linear-gradient(135deg, var(--brand-dark) 0%, #334155 100%);
+        color: var(--brand-green);
+    }
+
+    /* 3. Role Badges (AERO style) */
+    .role-pill {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+    .role-admin { background: #fee2e2; color: #b91c1c; }
+    .role-planner { background: #eff6ff; color: #1d4ed8; }
+    .role-prep { background: #f0fdf4; color: #15803d; }
+    .role-none { background: #f1f5f9; color: #64748b; }
+
+    /* 4. Table Tweaks */
+    .user-row { cursor: pointer; transition: background 0.2s; }
+    .user-row:hover { background-color: #f8fafc !important; }
+    .user-row:hover .user-name { color: var(--brand-green-dark); }
+    
+    .sp-tag {
+        font-family: 'JetBrains Mono', monospace;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    /* 5. Mobile Adjustments */
+    @media (max-width: 768px) {
+        .admin-brand-hero {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 1.5rem;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 1600px;">
+    
+    <!-- 1. HERO SECTION (Brand Dark) -->
+    <div class="admin-brand-hero fade-in">
+        <div>
+            <span class="hero-badge-caps"><i class="fas fa-shield-alt"></i> Security Center</span>
+            <h1 style="font-weight: 800; font-size: 2.2rem; line-height: 1.1; margin: 0;">Потребители</h1>
+            <p style="color: #94a3b8; margin-top: 8px; max-width: 500px;">
+                Управление на профили, роли и права за достъп до ERP системата.
+            </p>
+        </div>
+        
+        <!-- Quick Stats (Optional) -->
+        <div class="d-none d-md-flex gap-4">
+            <div class="text-center">
+                <div style="font-size: 1.8rem; font-weight: 800; color: var(--brand-green);">{{ users|length }}</div>
+                <div style="font-size: 0.65rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Общо</div>
+            </div>
+            <div class="text-center">
+                <div style="font-size: 1.8rem; font-weight: 800; color: #fff;">
+                    {{ users|selectattr('is_admin')|list|length }}
+                </div>
+                <div style="font-size: 0.65rem; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Админи</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. AERO TOOLBAR (Search & Actions) -->
+    <div class="catalog-toolbar fade-in-item" style="animation-delay: 0.1s;">
+        <div class="d-flex align-items-center gap-2 flex-grow-1">
+            <!-- Search using .input-aero -->
+            <div class="search-wrapper" style="max-width: 400px;">
+                <input type="text" class="input-aero" placeholder="Търсене по име, username..." id="userSearch">
+                <i class="fas fa-search input-icon"></i>
+            </div>
+            
+            <!-- Optional Filter Dropdown -->
+            <div class="d-none d-md-block position-relative">
+                <select class="input-aero select-aero" style="width: auto; min-width: 150px;">
+                    <option value="all">Всички роли</option>
+                    <option value="admin">Администратори</option>
+                    <option value="staff">Складови</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Add Button using .btn-brand-new -->
+        <a href="{{ url_for('admin.user_create') }}" class="btn-brand-new">
+            <i class="fas fa-user-plus me-2"></i> Нов потребител
+        </a>
+    </div>
+
+    <!-- 3. MODERN TABLE CARD -->
+    <div class="modern-table-card fade-in-item" style="animation-delay: 0.2s;">
+        <div class="table-responsive">
+            <table class="table table-modern align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th width="35%">Потребител</th>
+                        <th width="30%">Права и Роли</th>
+                        <th width="20%">Локации (SP)</th>
+                        <th width="15%" class="text-end">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr class="user-row">
+                        <!-- User Info -->
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="brand-avatar {% if user.is_admin %}admin{% endif %}">
+                                    {{ user.username[:2] | upper }}
+                                </div>
+                                <div>
+                                    <div class="user-name" style="font-weight: 700; color: var(--brand-dark); font-size: 0.95rem;">
+                                        {{ user.full_name }}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: #64748b;">
+                                        @{{ user.username }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Roles -->
+                        <td>
+                            {% if user.is_admin %}
+                                <span class="role-pill role-admin"><i class="fas fa-shield-alt me-1"></i> Admin</span>
+                            {% endif %}
+                            
+                            {% if user.can_assign_orders %}
+                                <span class="role-pill role-planner">Planner</span>
+                            {% endif %}
+                            
+                            {% if user.can_prepare_orders %}
+                                <span class="role-pill role-prep">Staff</span>
+                            {% endif %}
+
+                            {% if not user.is_admin and not user.can_assign_orders and not user.can_prepare_orders %}
+                                <span class="role-pill role-none">Inactive</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Locations -->
+                        <td>
+                            {% if user.service_points %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for sp in user.service_points %}
+                                        <span class="sp-tag">{{ sp.code }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <span class="text-muted small" style="font-style: italic;">Няма достъп</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="text-end">
+                            <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="btn-icon-soft d-inline-flex" title="Редактирай">
+                                <i class="fas fa-pen"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Empty State (ако няма потребители) -->
+        {% if not users %}
+        <div class="p-5 text-center">
+            <div style="width: 60px; height: 60px; background: #f1f5f9; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1rem; color: #94a3b8;">
+                <i class="fas fa-users-slash fa-2x"></i>
+            </div>
+            <h5 class="fw-bold text-muted">Няма намерени потребители</h5>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Simple Search Filter Script
+    document.getElementById('userSearch').addEventListener('keyup', function() {
+        let val = this.value.toLowerCase();
+        let rows = document.querySelectorAll('.user-row');
+        
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            row.style.display = text.includes(val) ? '' : 'none';
+        });
+    });
+</script>
+{% endblock %}

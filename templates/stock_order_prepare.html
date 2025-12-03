@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block title %}Подготовка #{{ order.external_id or order.id }} | GSTROY{% endblock %}
+
+{% block content %}
+
+
+<!-- 1. HEADER & INFO -->
+<div class="prep-header fade-in">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-4 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-dark text-white border border-dark font-monospace">#{{ order.external_id or order.id }}</span>
+                <span class="badge bg-light text-dark border fw-bold" id="orderStatusLabel">{{ status_labels.get(order.status, order.status) }}</span>
+            </div>
+            <h1 class="h3 fw-bold text-dark mb-0">Подготовка на поръчка</h1>
+        </div>
+        
+        <div class="d-flex gap-2">
+             <div class="btn-group">
+                 <button type="button" class="btn btn-white border shadow-sm text-muted" data-json-endpoint="{{ url_for('orders.stock_order_erp_input', order_id=order.id) }}" data-json-title="ERP Input">
+                    JSON IN
+                 </button>
+                 <button type="button" class="btn btn-white border shadow-sm text-muted" data-json-endpoint="{{ url_for('orders.stock_order_erp_output', order_id=order.id) }}" data-json-title="ERP Output">
+                    JSON OUT
+                 </button>
+             </div>
+             <a class="btn btn-outline-dark shadow-sm" href="{{ url_for('orders.stock_order_handover', order_id=order.id) }}">
+                <i class="bi bi-box-seam me-1"></i> Предаване
+             </a>
+             <a class="btn btn-outline-secondary border-0" href="{{ url_for('orders.stock_orders_dashboard') }}">
+                <i class="bi bi-x-lg"></i>
+             </a>
+        </div>
+    </div>
+
+    <!-- Info Grid -->
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="info-panel h-100">
+                <div class="info-label"><i class="bi bi-person me-1"></i>Клиент</div>
+                <div class="info-content text-truncate">{{ order.client_name }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="info-panel h-100">
+                <div class="info-label"><i class="bi bi-calendar-event me-1"></i>Доставка</div>
+                <div class="info-content">
+                    {{ order.delivery_date or '—' }} <span class="text-muted fw-normal">{{ order.delivery_time.strftime('%H:%M') if order.delivery_time else '' }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="info-panel h-100">
+                <div class="info-label"><i class="bi bi-sticky me-1"></i>Бележка</div>
+                <div class="info-content fst-italic">{{ order.note or 'Няма бележка' }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. STATS DASHBOARD -->
+<div class="row g-3 mb-4 fade-in" style="animation-delay: 0.1s;">
+    <div class="col-md-4">
+        <div class="prep-stat-card">
+            <div class="stat-title">Общо Редове</div>
+            <div class="stat-value text-dark" id="summaryTotal">{{ stats['items'] }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="prep-stat-card">
+            <div class="stat-title">Готови</div>
+            <div class="stat-value text-success" id="summaryCompleted">{{ stats['completed'] }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="prep-stat-card">
+            <div class="stat-title">Оставащи Бройки</div>
+            <div class="stat-value text-warning" id="summaryRemaining">{{ "%.2f"|format(stats['remaining']) }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. SERVICE SECTIONS (SCANNING LOOPS) -->
+{% for section in sections %}
+<div class="scanner-zone fade-in" style="animation-delay: 0.2s;">
+    
+    <!-- Section Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 border-bottom">
+        <div>
+            <div class="text-uppercase text-muted small fw-bold mb-1">Точка на обслужване</div>
+            <h2 class="h4 fw-bold text-dark mb-0">{{ section.service_point.name }}</h2>
+        </div>
+        <div class="text-end">
+            <div class="badge bg-light text-dark border font-monospace">Task #{{ section.scan_task.id }}</div>
+            <div class="small text-muted mt-1">{{ section["items"] | length }} позиции</div>
+        </div>
+    </div>
+
+    <!-- SCANNER FORM -->
+    <form class="row g-3 align-items-end mb-4 scan-form" data-service-point="{{ section.service_point.id }}" data-url="{{ scan_url }}">
+        <div class="col-lg-7">
+            <label class="form-label fw-bold text-muted small text-uppercase">Баркод / Артикул</label>
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-upc-scan"></i></span>
+                <input type="text" name="barcode" class="form-control scan-input-lg border-start-0 ps-2 barcode-input" placeholder="Сканирай тук..." required autocomplete="off">
+            </div>
+        </div>
+        <div class="col-4 col-lg-2">
+            <label class="form-label fw-bold text-muted small text-uppercase">Кол.</label>
+            <input type="number" name="qty" class="form-control scan-input-lg text-center fw-bold" value="1" min="0.01" step="0.01">
+        </div>
+        <div class="col-8 col-lg-3">
+            <button type="submit" class="btn btn-brand-new w-100 h-100 rounded-3" style="min-height: 3.5rem;">
+                СКАНИРАЙ
+            </button>
+        </div>
+        <div class="col-12">
+            <div class="scan-feedback alert d-none mb-0 shadow-sm border-0"></div>
+        </div>
+    </form>
+
+    <!-- ITEMS TABLE -->
+    <div class="card border-0 shadow-sm overflow-hidden">
+        <div class="table-responsive">
+            <table class="table prep-table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;"></th>
+                        <th>Артикул</th>
+                        <th>Инфо</th>
+                        <th class="text-end">Поръчано</th>
+                        <th class="text-end">Готово</th>
+                        <th class="text-end">Остава</th>
+                        <th class="text-end" style="width: 100px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for item in section["items"] %}
+                    {% set requires_manual = (not item.product) or (not item.product.inventory_with_barcode) or (not item.product.barcode) %}
+                    <tr data-item-id="{{ item.id }}"
+                        data-ordered="{{ item.quantity_ordered }}"
+                        data-prepared="{{ item.quantity_prepared }}"
+                        data-remaining="{{ item.remaining_to_prepare }}"
+                        class="{{ 'row-complete' if item.remaining_to_prepare <= 0 else '' }}">
+                        
+                        <td class="text-center">
+                            {% if item.remaining_to_prepare <= 0 %}
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            {% else %}
+                                <i class="bi bi-circle text-muted opacity-25 fs-5"></i>
+                            {% endif %}
+                        </td>
+                        
+                        <td>
+                            <div class="fw-bold text-dark">{{ item.product.name if item.product else 'Unknown' }}</div>
+                            <div class="small text-muted font-monospace">{{ item.product.item_number if item.product else '' }}</div>
+                        </td>
+                        
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                <span class="badge bg-light text-dark border fw-normal font-monospace text-start" style="width: fit-content;">
+                                    <i class="bi bi-upc me-1"></i>{{ item.product.barcode if item.product and item.product.barcode else '—' }}
+                                </span>
+                                <span class="js-status badge rounded-pill {{ 'bg-success' if item.preparation_status == 'completed' else 'bg-secondary' }} bg-opacity-10 text-dark border border-0" style="width: fit-content;">
+                                    {{ item.preparation_status }}
+                                </span>
+                                {% if requires_manual %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Ръчно</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        
+                        <td class="text-end fw-bold text-muted">{{ item.quantity_ordered }}</td>
+                        <td class="text-end fw-bold text-success js-prepared">{{ item.quantity_prepared }}</td>
+                        <td class="text-end fw-bold text-danger js-remaining" style="font-size: 1.1rem;">{{ item.remaining_to_prepare }}</td>
+                        
+                        <td class="text-end">
+                            <button type="button" class="btn btn-light border btn-sm text-muted manual-btn hover-dark" 
+                                    data-service-point="{{ section.service_point.id }}"
+                                    data-item-id="{{ item.id }}"
+                                    data-remaining="{{ item.remaining_to_prepare }}"
+                                    title="Ръчна корекция">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- 4. SYSTEM LOG (History) -->
+<div class="card border-0 shadow-sm rounded-4 mb-5 fade-in" style="animation-delay: 0.3s;">
+    <div class="card-header bg-white border-bottom py-3">
+        <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-terminal me-2"></i>История на сканиранията</h6>
+    </div>
+    <div class="card-body bg-dark rounded-bottom-4 p-0">
+        <div class="log-console" id="scanEvents">
+            <div class="log-item text-muted fst-italic">Очаква се вход...</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    /* 
+       LOGIC PRESERVED 100% 
+       Updated ONLY visual classes in JS callbacks 
+    */
+    const manualUrl = "{{ manual_url }}";
+    const scanEventsList = document.getElementById('scanEvents');
+    const MAX_EVENTS = 20;
+    const scanForms = document.querySelectorAll('.scan-form');
+    let activeForm = scanForms[0] || null;
+
+    function logEvent(message, variant) {
+      if (!scanEventsList) return;
+      // Remove initial placeholder
+      if(scanEventsList.children[0] && scanEventsList.children[0].classList.contains('fst-italic')) {
+          scanEventsList.innerHTML = '';
+      }
+
+      const div = document.createElement('div');
+      div.className = 'log-item';
+      
+      let colorClass = 'text-light';
+      if(variant === 'success') colorClass = 'log-success';
+      if(variant === 'danger') colorClass = 'log-danger';
+      if(variant === 'primary') colorClass = 'log-info';
+
+      const time = new Date().toLocaleTimeString([], {hour12: false});
+      div.innerHTML = `<span class="${colorClass}">${message}</span><span class="text-secondary small font-monospace">${time}</span>`;
+      
+      scanEventsList.prepend(div);
+      
+      if (scanEventsList.children.length > MAX_EVENTS) {
+        scanEventsList.removeChild(scanEventsList.lastChild);
+      }
+    }
+
+    function updateRow(item) {
+      const row = document.querySelector(`tr[data-item-id="${item.item_id}"]`);
+      if (!row) return;
+      
+      row.querySelector('.js-prepared').textContent = item.prepared;
+      row.querySelector('.js-remaining').textContent = item.remaining;
+      row.querySelector('.js-status').textContent = item.status;
+      
+      // Visual update for completed rows
+      if(item.remaining <= 0) {
+          row.classList.add('row-complete');
+          row.querySelector('td:first-child i').className = 'bi bi-check-circle-fill text-success fs-5';
+      } else {
+          row.classList.remove('row-complete');
+          row.querySelector('td:first-child i').className = 'bi bi-circle text-muted opacity-25 fs-5';
+      }
+
+      const manualBtn = row.querySelector('.manual-btn');
+      if (manualBtn) manualBtn.dataset.remaining = item.remaining;
+      
+      row.dataset.prepared = item.prepared;
+      row.dataset.remaining = item.remaining;
+      refreshSummary();
+    }
+
+    function refreshSummary() {
+      const rows = document.querySelectorAll('tr[data-item-id]');
+      let completed = 0;
+      let remaining = 0;
+      rows.forEach(function (row) {
+        const ordered = parseFloat(row.dataset.ordered || '0');
+        const prepared = parseFloat(row.dataset.prepared || '0');
+        const left = Math.max(ordered - prepared, 0);
+        if (ordered > 0 && prepared >= ordered) {
+          completed += 1;
+        }
+        remaining += left;
+      });
+      
+      const totalSpan = document.getElementById('summaryTotal');
+      const completedSpan = document.getElementById('summaryCompleted');
+      const remainingSpan = document.getElementById('summaryRemaining');
+      
+      if (totalSpan) totalSpan.textContent = rows.length;
+      if (completedSpan) completedSpan.textContent = completed;
+      if (remainingSpan) remainingSpan.textContent = remaining.toFixed(2);
+    }
+
+    function handleScan(form, barcode, qty, label) {
+      if (!barcode) return;
+      const feedback = form.querySelector('.scan-feedback');
+      
+      // UI Loading state
+      const btn = form.querySelector('button[type="submit"]');
+      const originalBtnContent = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      btn.disabled = true;
+
+      fetch(form.dataset.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_point_id: form.dataset.servicePoint,
+          barcode: barcode,
+          qty: qty,
+        }),
+      })
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(result => {
+          btn.innerHTML = originalBtnContent;
+          btn.disabled = false;
+          
+          const data = result.data;
+          if (!result.ok || !data.success) {
+            if (feedback) {
+              feedback.className = 'scan-feedback alert alert-danger shadow-sm border-0';
+              feedback.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${data.error || 'Грешка при сканиране.'}`;
+              feedback.classList.remove('d-none');
+            }
+            logEvent(`Грешка: ${data.error || 'unknown'}`, 'danger');
+            return;
+          }
+          
+          if (feedback) {
+             feedback.className = 'scan-feedback alert alert-success shadow-sm border-0';
+             feedback.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Успешно: ${barcode}`;
+             feedback.classList.remove('d-none');
+             // Auto hide success after 3s
+             setTimeout(() => feedback.classList.add('d-none'), 3000);
+          }
+          
+          updateRow(data.item);
+          document.getElementById('orderStatusLabel').textContent = data.order_status_label;
+          logEvent(`${label}: ${barcode} × ${qty}`, 'success');
+        })
+        .catch(() => {
+          btn.innerHTML = originalBtnContent;
+          btn.disabled = false;
+          if (feedback) {
+            feedback.className = 'scan-feedback alert alert-danger shadow-sm border-0';
+            feedback.textContent = 'Неуспешна връзка със сървъра.';
+            feedback.classList.remove('d-none');
+          }
+          logEvent('Неуспешна заявка (Network)', 'danger');
+        });
+    }
+
+    // Initialize Forms
+    scanForms.forEach(function (form) {
+      const barcodeInput = form.querySelector('.barcode-input');
+      if (barcodeInput) {
+        barcodeInput.addEventListener('focus', function () { activeForm = form; });
+      }
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const barcodeInput = form.querySelector('input[name="barcode"]');
+        const qtyInput = form.querySelector('input[name="qty"]');
+        const barcode = barcodeInput.value.trim();
+        if (!barcode) return;
+        
+        const qty = qtyInput.value || 1;
+        barcodeInput.value = '';
+        barcodeInput.focus();
+        handleScan(form, barcode, qty, 'Сканиране');
+      });
+    });
+    
+    refreshSummary();
+
+    // Manual Button Logic
+    document.querySelectorAll('.manual-btn').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const remaining = Number(button.dataset.remaining || '0');
+        const defaultQty = remaining > 0 ? remaining : 1;
+        const qty = prompt('Ръчно въвеждане на количество:', defaultQty);
+        if (!qty) return;
+        
+        const payload = {
+          service_point_id: button.dataset.servicePoint,
+          item_id: button.dataset.itemId,
+          qty: qty,
+        };
+        
+        fetch(manualUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then(r => r.json().then(data => ({ ok: r.ok, data })))
+          .then(result => {
+            if (!result.ok || !result.data.success) {
+              alert(result.data.error || 'Грешка.');
+              logEvent(`Ръчно (Грешка): ${result.data.error}`, 'danger');
+              return;
+            }
+            updateRow(result.data.item);
+            document.getElementById('orderStatusLabel').textContent = result.data.order_status_label;
+            logEvent(`Ръчно: Ред #${result.data.item.item_id} × ${qty}`, 'primary');
+          })
+          .catch(() => {
+            alert('Грешка при връзка.');
+            logEvent('Ръчно: Network Error', 'danger');
+          });
+      });
+    });
+
+    // Global Scanner Trap (Invisible Input)
+    const globalInput = document.createElement('input');
+    globalInput.type = 'text';
+    globalInput.id = 'globalScannerInput';
+    globalInput.autocomplete = 'off';
+    globalInput.style.position = 'fixed';
+    globalInput.style.top = '-1000px';
+    document.body.appendChild(globalInput);
+
+    function focusGlobalScanner() {
+      try { globalInput.focus(); } catch (err) {}
+    }
+    focusGlobalScanner();
+
+    globalInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        const barcode = globalInput.value.trim();
+        globalInput.value = '';
+        const form = activeForm || scanForms[0];
+        if (form && barcode) {
+            // Flash the UI to show global scan was caught
+            form.querySelector('.barcode-input').classList.add('bg-light');
+            setTimeout(() => form.querySelector('.barcode-input').classList.remove('bg-light'), 200);
+            handleScan(form, barcode, 1, 'Скенер (Auto)');
+        }
+        event.preventDefault();
+      }
+    });
+
+    document.addEventListener('keydown', function (event) {
+      const target = event.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (event.key.length === 1 || event.key === 'Enter') focusGlobalScanner();
+    });
+  </script>
+{% endblock %}

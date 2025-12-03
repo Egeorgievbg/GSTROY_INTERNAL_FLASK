@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} | Internal View{% endblock %}
+
+{% block content %}
+
+<!-- BREADCRUMBS & SYSTEM STATUS -->
+<div class="d-flex justify-content-between align-items-center mb-3 fade-in">
+    <nav>
+        <ol class="breadcrumb small mb-0">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}" class="text-muted">Начало</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('products.products') }}" class="text-muted">Каталог</a></li>
+            <li class="breadcrumb-item active fw-bold text-dark">{{ product.item_number }}</li>
+        </ol>
+    </nav>
+    <div class="badge bg-white text-muted border rounded-pill px-3 shadow-sm">
+        <i class="bi bi-database-check me-1 text-success"></i> Internal View v2.0
+    </div>
+</div>
+
+<!-- 1. HEADER & ACTIONS -->
+<div class="row g-4 mb-4 fade-in align-items-start">
+    <div class="col-lg-7">
+        <div class="d-flex align-items-start gap-3">
+            {% if product.is_active %}
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 mt-1">АКТИВЕН</span>
+            {% else %}
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border mt-1">НЕАКТИВЕН</span>
+            {% endif %}
+            
+            <div>
+                <h1 class="h3 fw-bold text-dark mb-1">{{ product.name }}</h1>
+                <div class="d-flex flex-wrap gap-3 text-muted small mt-2">
+                    <span class="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded border"><i class="bi bi-upc"></i> {{ product.item_number }}</span>
+                    <span class="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded border"><i class="bi bi-building"></i> {{ product.manufacturer_name or 'N/A' }}</span>
+                    <span class="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded border"><i class="bi bi-layers"></i> {{ product.category or 'General' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- QUICK ACTION TOOLBAR -->
+    <div class="col-lg-5 d-flex justify-content-lg-end">
+        <div class="action-bar">
+            <button class="btn-action" onclick="navigator.clipboard.writeText(window.location.href);">
+                <i class="bi bi-link-45deg"></i>
+                <span>Копирай<br>Линк</span>
+            </button>
+            <button class="btn-action">
+                <i class="bi bi-tag"></i>
+                <span>Клиентска<br>Цена</span>
+            </button>
+            <a href="#" class="btn-action text-decoration-none">
+                <i class="bi bi-printer"></i>
+                <span>Принтирай<br>Етикет</span>
+            </a>
+            <button class="btn-action text-danger border-danger border-opacity-25 bg-danger bg-opacity-10">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Ниска<br>Наличност</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 2. KPI DASHBOARD -->
+<div class="kpi-grid fade-in" style="animation-delay: 0.1s;">
+    <!-- Free Qty (Green) -->
+    <div class="kpi-card kpi-green">
+        <span class="kpi-label"><i class="bi bi-check-circle me-1"></i>Свободно К-во</span>
+        <div class="kpi-value">{{ "%.2f"|format(product.qty_free or 0) }}</div> 
+        <div class="small text-muted fw-bold text-uppercase">БРОЙ</div>
+    </div>
+
+    <!-- Total Physical -->
+    <div class="kpi-card">
+        <span class="kpi-label">Общо Физическо</span>
+        <div class="kpi-value">{{ "%.2f"|format(product.qty_physical or 0) }}</div>
+        <div class="small text-muted">в системата</div>
+    </div>
+
+    <!-- Reserved (Orange) -->
+    <div class="kpi-card kpi-orange">
+        <span class="kpi-label"><i class="bi bi-lock me-1"></i>Запазено</span>
+        <div class="kpi-value">{{ "%.2f"|format(product.qty_reserved or 0) }}</div>
+        <div class="small text-muted">за клиенти</div>
+    </div>
+
+    <!-- Incoming (Blue) -->
+    <div class="kpi-card">
+        <span class="kpi-label"><i class="bi bi-truck me-1"></i>Чака Доставка</span>
+        <div class="kpi-value text-primary">{{ "%.2f"|format(product.qty_incoming or 0) }}</div>
+        <div class="small text-muted">поръчано</div>
+    </div>
+    
+    <!-- Scrap (Red) -->
+    <div class="kpi-card kpi-red">
+        <span class="kpi-label">Брак / Ревизия</span>
+        <div class="kpi-value">{{ "%.2f"|format(product.qty_scrap or 0) }}</div>
+        <div class="small text-muted">непродаваем</div>
+    </div>
+</div>
+
+<!-- 3. MAIN SPLIT LAYOUT -->
+<div class="row g-4 mt-1">
+    
+    <!-- LEFT COLUMN: WAREHOUSE MATRIX -->
+    <div class="col-lg-7 fade-in" style="animation-delay: 0.2s;">
+        
+        <!-- WAREHOUSE STOCK TABLE -->
+        <div class="wh-table-container mb-4">
+            <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold m-0 d-flex align-items-center text-dark">
+                    <i class="bi bi-buildings-fill text-primary me-2"></i>Наличност по Складове
+                </h6>
+            </div>
+            
+            <div class="d-flex bg-light border-bottom py-2 px-3">
+                <span class="small fw-bold text-muted text-uppercase flex-grow-1">Локация</span>
+                <span class="small fw-bold text-muted text-uppercase">Свободно</span>
+            </div>
+
+            <!-- Loop Warehouses -->
+            {% for wh in product.warehouses %}
+            <div class="wh-row {{ 'bg-success bg-opacity-10' if wh.qty > 0 else '' }}">
+                <div class="wh-name">
+                    <div class="wh-dot {{ 'active' if wh.qty > 0 else '' }}"></div>
+                    {{ wh.name }}
+                </div>
+                <div class="wh-val {{ 'text-muted opacity-50' if wh.qty == 0 else '' }}">
+                    {{ "%.2f"|format(wh.qty) }}
+                </div>
+            </div>
+            {% else %}
+            <div class="wh-row">
+                <div class="text-muted small fst-italic">Няма данни за складове</div>
+            </div>
+            {% endfor %}
+            
+            <!-- Total Footer -->
+            <div class="p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-dark small text-uppercase">Общо Налично</span>
+                    <span class="fw-bold text-success fs-5 font-monospace">{{ "%.2f"|format(product.qty_free or 0) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRICING HISTORY -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold m-0 d-flex align-items-center text-dark">
+                    <i class="bi bi-graph-down-arrow text-danger me-2"></i>Последни Доставни Цени
+                </h6>
+                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">INTERNAL ONLY</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 small align-middle">
+                    <thead class="bg-light text-muted">
+                        <tr>
+                            <th class="ps-3 border-bottom-0">Склад</th>
+                            <th class="text-end border-bottom-0">Доставена цена</th>
+                            <th class="text-end pe-3 border-bottom-0">Дата</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="ps-3 fw-bold text-dark">ДОБРИЧ</td>
+                            <td class="text-end font-monospace">23.00 лв.</td>
+                            <td class="text-end pe-3 text-muted">18.08.25</td>
+                        </tr>
+                        <tr>
+                            <td class="ps-3 fw-bold text-dark">СОФИЯ</td>
+                            <td class="text-end font-monospace">24.19 лв.</td>
+                            <td class="text-end pe-3 text-muted">15.08.25</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: IMAGE, PRICE & DETAILS -->
+    <div class="col-lg-5 fade-in" style="animation-delay: 0.3s;">
+        
+        <!-- IMAGE & BARCODE -->
+        <div class="modern-card mb-4 p-4 text-center">
+            {% set img_src = product.image_url or 'images/no_image.png' %}
+            {% if not img_src.startswith('http') %}{% set img_src = url_for('static', filename=img_src.lstrip('/')) %}{% endif %}
+            
+            <div class="ratio ratio-4x3 mb-3">
+                <img src="{{ img_src }}" class="object-fit-contain rounded-3" alt="Product">
+            </div>
+            
+            <!-- Barcode Visual (Simulated CSS Barcode) -->
+            <div class="barcode-box mt-4">
+                <div style="height: 40px; background: repeating-linear-gradient(90deg, #000 0px, #000 2px, transparent 2px, transparent 4px); display: inline-block; width: 200px;"></div>
+                <div class="small font-monospace mt-1 text-muted fw-bold letter-spacing-2">
+                    <!-- Use item_number or ean -->
+                    {{ product.ean or product.item_number }}
+                </div>
+            </div>
+        </div>
+
+        <!-- PRICING PANEL -->
+        <div class="modern-card mb-4 p-4 bg-light border-0">
+            <h6 class="fw-bold text-muted text-uppercase small mb-3 border-bottom pb-2">Ценова Информация</h6>
+            
+            {% set base_price = product.price_unit_1 or 0.0 %}
+            {% set promo_price = product.promo_price_unit_1 %}
+            
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small text-uppercase">Стандартна Цена</span>
+                <span class="fw-bold text-decoration-line-through text-muted">{{ "%.2f"|format(base_price) }} лв.</span>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="fw-bold text-dark">Промо / Клиент</span>
+                <span class="fs-2 fw-bold text-danger font-monospace lh-1">
+                    {{ "%.2f"|format(promo_price if promo_price else base_price) }} 
+                    <small class="fs-6 text-muted fw-normal">лв.</small>
+                </span>
+            </div>
+            
+            <!-- Specs Grid -->
+            <div class="bg-white p-3 rounded-3 border shadow-sm">
+                <div class="spec-compact">
+                    <span>Каталожен номер</span>
+                    <span class="font-monospace text-dark">{{ product.item_number }}</span>
+                </div>
+                <div class="spec-compact">
+                    <span>Тегло</span>
+                    <span>{{ product.weight_kg or '-' }} kg</span>
+                </div>
+                <div class="spec-compact border-0">
+                    <span>Обем</span>
+                    <span>{{ product.volume_m3 or '-' }} m³</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABS: DESCRIPTION & LOGS -->
+        <div>
+            <ul class="nav nav-tabs nav-tabs-aero mb-3" id="prodTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="desc-tab" data-bs-toggle="tab" data-bs-target="#desc" type="button">Описание</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button">История</button>
+                </li>
+            </ul>
+            <div class="tab-content p-2" id="prodTabContent">
+                <div class="tab-pane fade show active" id="desc">
+                    <div class="text-muted small" style="line-height: 1.6;">
+                        <p><strong>Кратко описание:</strong> {{ product.name }}</p>
+                        <hr class="border-light">
+                        <p class="fst-italic">Няма въведено пълно описание за този продукт.</p>
+                        
+                        <div class="mt-3 p-3 bg-dark text-white rounded-3 d-flex align-items-center justify-content-between shadow-sm">
+                            <span class="small"><i class="bi bi-shield-check me-2"></i>Internal System</span>
+                            <strong class="font-monospace">GSTROY</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="logs">
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-clock-history fs-4 mb-2 d-block opacity-50"></i>
+                        Няма скорошни движения.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    .letter-spacing-2 { letter-spacing: 2px; }
+</style>
+
+{% endblock %}

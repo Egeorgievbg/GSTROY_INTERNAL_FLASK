@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | GSTROY{% endblock %}
+
+{% block content %}
+
+<!-- 1. PERSONAL HEADER (MATCHING DETAIL STYLE) -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 position-relative overflow-hidden fade-in">
+    <!-- Green Strip -->
+    <div class="position-absolute top-0 start-0 bottom-0" style="width: 6px; background: linear-gradient(180deg, #a6cf39 0%, #7ca323 100%);"></div>
+    
+    <div class="card-body p-4 ps-5 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                 <h1 class="h3 fw-bold text-dark mb-0">{{ page_title }}</h1>
+                 {% if auto_refresh %}
+                 <span class="badge bg-white text-success border shadow-sm d-flex align-items-center gap-2 px-2 py-1 rounded-pill small ms-2">
+                    <span class="spinner-grow spinner-grow-sm text-success" role="status" aria-hidden="true"></span> LIVE
+                 </span>
+                 {% endif %}
+            </div>
+            <p class="text-muted mb-0">
+                Здравей, <strong>{{ current_user.full_name }}</strong>! Това са твоите задачи за изпълнение.
+            </p>
+        </div>
+        
+        <div>
+            <a class="btn btn-white border shadow-sm fw-bold text-muted d-flex align-items-center gap-2" href="{{ url_for('orders.stock_orders_assigned') }}">
+                <i class="bi bi-arrow-clockwise"></i> Обнови
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 2. YOUR PERFORMANCE STATS (USING GLOBAL KPI STYLES) -->
+<div class="kpi-dashboard-grid fade-in" style="animation-delay: 0.1s;">
+    {% for status in status_order %}
+      {% set count = status_counts.get(status, 0) %}
+      
+      <!-- Показваме само статуси, които са релевантни за работника (Назначена, В процес, Готова) -->
+      {% if count > 0 or status in ['assigned', 'progress', 'ready'] %}
+          <!-- Използваме същия клас .kpi-card като в Дашборда -->
+          <div class="kpi-card" data-status="{{ status }}">
+              <div class="kpi-count">{{ count }}</div>
+              <div class="kpi-label">{{ status_labels.get(status, status) }}</div>
+          </div>
+      {% endif %}
+    {% endfor %}
+</div>
+
+<!-- 3. TASK CARDS (SHARED COMPONENT) -->
+<div class="fade-in" style="animation-delay: 0.2s;">
+    {% if status_counts.values()|sum == 0 %}
+        <div class="text-center py-5 border border-2 border-dashed rounded-4 bg-white">
+            <div class="mb-3 text-success opacity-25">
+                <i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i>
+            </div>
+            <h4 class="fw-bold text-dark">Всичко е чисто!</h4>
+            <p class="text-muted">Нямате активни задачи в момента. Насладете се на почивката.</p>
+        </div>
+    {% else %}
+        <!-- Взима красивите зелени карти от общия файл -->
+        {% include "_stock_order_cards.html" %}
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  {% if auto_refresh %}
+    <script>
+      setTimeout(function () { 
+          if(!document.querySelector(':focus')) {
+             window.location.reload(); 
+          }
+      }, 60000);
+    </script>
+  {% endif %}
+{% endblock %}

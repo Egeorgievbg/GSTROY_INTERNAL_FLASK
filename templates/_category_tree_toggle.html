@@ -1,0 +1,19 @@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".category-node").forEach(function (node) {
+        var toggle = node.querySelector(".category-toggle");
+        var children = node.querySelector(".category-children");
+        if (!toggle || !children) return;
+
+        toggle.addEventListener("click", function () {
+            var expanded = node.classList.toggle("open");
+            toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        });
+
+        if (node.classList.contains("is-active")) {
+            node.classList.add("open");
+            toggle.setAttribute("aria-expanded", "true");
+        }
+    });
+});
+</script>

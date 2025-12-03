@@ -1,0 +1,573 @@
+﻿{% extends "base.html" %}
+{% set is_edit = product_list is not none %}
+{% block title %}{{ "Редакция" if is_edit else "Нов" }} Списък | GSTROY{% endblock %}
+
+{% block scripts %}
+
+<script type="application/json" id="existing-items-json">{{ existing_items|tojson }}</script>
+
+<script>
+/* 
+   LOGIC SCRIPT (Preserved functionality, updated DOM targeting)
+*/
+  document.addEventListener("DOMContentLoaded", () => {
+      const scanInput = document.getElementById('scan-input');
+      const qtyInput = document.getElementById('quantity-input');
+      const addBtn = document.getElementById('add-item-btn');
+      const errorBox = document.getElementById('scan-error');
+      const productPreview = document.getElementById('product-preview');
+      
+      // Preview Elements
+      const previewName = document.getElementById('preview-name');
+      const previewSku = document.getElementById('preview-sku');
+      const previewUnits = document.getElementById('preview-units');
+      const previewImage = document.getElementById('preview-image');
+      const conversionActions = document.getElementById('conversion-actions');
+      const modeHelper = document.getElementById('mode-helper');
+      
+      const manualWarning = document.getElementById('manual-warning');
+      const itemsContainer = document.getElementById('simple-items');
+      const emptyState = document.getElementById('items-empty');
+      const summaryEl = document.getElementById('items-summary');
+      
+      // Data
+      const existingItems = JSON.parse(document.getElementById('existing-items-json')?.textContent || '[]');
+      const itemsMap = new Map();
+      let pendingProduct = null;
+
+      const UNIT_TOKEN_MAP = (() => {
+        const aliases = {
+          pieces: ['бр', 'бр.', 'брои', 'брой', 'broi', 'broy', 'pcs', 'piece', 'pieces'],
+          packages: ['пак', 'пак.', 'пакет', 'pak', 'package', 'pkg'],
+        };
+        const map = new Map();
+        Object.entries(aliases).forEach(([name, values]) => {
+          values.forEach((value) => {
+            const token = value.toString().replace(/[\s\.\-]/g, '').toLowerCase();
+            map.set(token, name);
+          });
+        });
+        return map;
+      })();
+
+      function canonicalUnit(value) {
+        if (!value) return null;
+        const token = value.toString().replace(/[\s\.\-]/g, '').toLowerCase();
+        return UNIT_TOKEN_MAP.get(token) || null;
+      }
+      function isPiecesUnit(value) { return canonicalUnit(value) === 'pieces'; }
+      function isPackageUnit(value) { return canonicalUnit(value) === 'packages'; }
+
+      function resetFocus() {
+        scanInput.value = '';
+        scanInput.focus();
+      }
+
+      function showError(message) {
+        errorBox.innerHTML = `<i class="bi bi-exclamation-circle-fill me-2"></i> ${message}`;
+        errorBox.classList.remove('d-none');
+        // Auto-hide after 5s
+        setTimeout(() => { clearError(); }, 5000);
+      }
+
+      function clearError() {
+        errorBox.classList.add('d-none');
+        errorBox.textContent = '';
+      }
+
+      function showManualWarning(message) {
+        manualWarning.innerHTML = `<i class="bi bi-info-circle-fill me-2"></i> ${message}`;
+        manualWarning.classList.remove('d-none');
+      }
+
+      function hideManualWarning() {
+        manualWarning.classList.add('d-none');
+        manualWarning.textContent = '';
+      }
+
+      function hidePreview() {
+        productPreview.classList.add('d-none');
+        conversionActions.innerHTML = '';
+        modeHelper.textContent = '';
+        pendingProduct = null;
+      }
+
+      function formatQty(value) {
+        const fixed = Number(value).toFixed(2);
+        return fixed.replace(/\.00$/, '');
+      }
+
+      function syncState() {
+        const totalLines = itemsMap.size;
+        let piecesTotal = 0;
+        let packagesTotal = 0;
+        itemsMap.forEach((entry) => {
+          if (entry.unitMode === 'pieces' || entry.unitMode === 'pieces_from_packages') {
+            piecesTotal += entry.quantity;
+          }
+          if (entry.unitMode === 'packages') {
+            packagesTotal += entry.quantity;
+          }
+        });
+        
+        let summary = `<span class="fw-bold text-dark">${totalLines}</span> реда`;
+        if (piecesTotal > 0) summary += ` <span class="mx-1 text-muted">|</span> <span class="fw-bold text-dark">${formatQty(piecesTotal)}</span> бр.`;
+        if (packagesTotal > 0) summary += ` <span class="mx-1 text-muted">|</span> <span class="fw-bold text-dark">${formatQty(packagesTotal)}</span> пак.`;
+        
+        summaryEl.innerHTML = summary;
+        
+        if (totalLines === 0) {
+          emptyState.classList.remove('d-none');
+          itemsContainer.classList.add('d-none');
+        } else {
+          emptyState.classList.add('d-none');
+          itemsContainer.classList.remove('d-none');
+        }
+      }
+
+      // NEW RENDER FUNCTION FOR FUTURISTIC ROW
+      function renderRow(code) {
+        const data = itemsMap.get(code);
+        let row = itemsContainer.querySelector(`[data-item-code="${code}"]`);
+        
+        if (!data) {
+          if (row) {
+            row.remove();
+            syncState();
+          }
+          return;
+        }
+
+        if (!row) {
+          row = document.createElement('div');
+          row.className = 'item-row p-3 d-flex align-items-center gap-3';
+          row.dataset.itemCode = code;
+          // Inner HTML Structure
+          row.innerHTML = `
+            <div class="item-thumb-container d-none"></div>
+            
+            <div class="flex-grow-1 overflow-hidden">
+                <div class="d-flex align-items-baseline gap-2">
+                    <span class="fw-bold text-dark text-truncate item-name" style="font-size: 1rem;"></span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 small text-muted mt-1">
+                    <span class="item-sku font-monospace bg-light px-1 rounded"></span>
+                    <span class="item-brand fw-medium"></span>
+                    <span class="item-location d-none text-success"><i class="bi bi-geo-alt"></i> <span class="loc-val"></span></span>
+                </div>
+            </div>
+
+            <div class="text-end">
+                <div class="item-qty-badge shadow-sm item-qty"></div>
+                <div class="small text-muted mt-1 item-unit text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;"></div>
+            </div>
+
+            <div class="d-flex flex-column gap-1 ms-2 border-start ps-2">
+                <button type="button" class="btn btn-sm btn-link text-success p-0 hover-scale" data-action="increment" title="+1">
+                    <i class="bi bi-plus-square-fill fs-5"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-muted p-0 hover-scale" data-action="edit" title="Редакция">
+                    <i class="bi bi-pencil-square fs-5"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-danger p-0 hover-scale" data-action="remove" title="Изтрий">
+                    <i class="bi bi-x-square fs-5"></i>
+                </button>
+            </div>
+
+            <input type="hidden" name="item_number[]" value="${code}">
+            <input type="hidden" name="quantity[]" value="">
+            <input type="hidden" name="unit_mode[]" value="">
+          `;
+          itemsContainer.prepend(row); // Add to top
+        }
+
+        // Update Data
+        row.querySelector('.item-name').textContent = data.name || code;
+        row.querySelector('.item-sku').textContent = code;
+        row.querySelector('.item-brand').textContent = data.brand || '';
+        
+        const locEl = row.querySelector('.item-location');
+        if(data.storage_location) {
+            locEl.classList.remove('d-none');
+            locEl.querySelector('.loc-val').textContent = data.storage_location;
+        }
+
+        row.querySelector('.item-qty').textContent = formatQty(data.quantity);
+        row.querySelector('.item-unit').textContent = data.unit || 'бр.';
+        row.querySelector('input[name="quantity[]"]').value = data.quantity;
+        row.querySelector('input[name="unit_mode[]"]').value = data.unitMode || '';
+
+        const thumbContainer = row.querySelector('.item-thumb-container');
+        if (data.imageUrl) {
+          thumbContainer.innerHTML = `<img src="${data.imageUrl}" alt="img" style="width: 48px; height: 48px; object-fit: contain; border-radius: 6px; border: 1px solid #eee;">`;
+          thumbContainer.classList.remove('d-none');
+        } else {
+          thumbContainer.classList.add('d-none');
+        }
+
+        syncState();
+      }
+
+      function upsertItem(product, quantity, meta) {
+        const key = product.item_number;
+        const existing = itemsMap.get(key);
+        const newQty = Number(((existing ? existing.quantity : 0) + quantity).toFixed(3));
+        
+        itemsMap.set(key, {
+          name: product.name,
+          brand: product.brand,
+          storage_location: product.storage_location,
+          unit: meta.unitLabel,
+          unitMode: meta.unitMode,
+          quantity: newQty,
+          imageUrl: meta.imageUrl || product.image_url || (existing ? existing.imageUrl : null),
+          item_number: key,
+        });
+        renderRow(key);
+        
+        // Visual Feedback
+        if (navigator.vibrate) navigator.vibrate(20);
+      }
+
+      function buildConversionOptions(product) {
+        const options = [];
+        const ratio = parseFloat(product.unit_conversion_ratio || 0) || 0;
+        
+        if (isPiecesUnit(product.main_unit) || isPiecesUnit(product.secondary_unit)) {
+          options.push({
+            label: 'Добави Бройки',
+            helper: 'Основна единица' ,
+            unitLabel: isPiecesUnit(product.main_unit) ? (product.main_unit || 'бр.') : (product.secondary_unit || 'бр.'),
+            unitMode: 'pieces',
+            autoAdd: true,
+            convert: (qty) => qty,
+          });
+        }
+        
+        if (isPackageUnit(product.main_unit)) {
+          options.push({
+            label: 'Добави Пакети',
+            helper: ratio ? `1 пак. = ${ratio} бр.` : '',
+            unitLabel: product.main_unit || 'пак.',
+            unitMode: 'packages',
+            convert: (qty) => qty,
+          });
+          
+          if (ratio > 0 && isPiecesUnit(product.secondary_unit)) {
+            options.push({
+              label: 'Пакет -> Бройки',
+              helper: `Разопаковане`,
+              unitLabel: product.secondary_unit || 'бр.',
+              unitMode: 'pieces_from_packages',
+              convert: (qty) => qty * ratio,
+            });
+          }
+        }
+        return options;
+      }
+
+      function showConversionOptions(product, options) {
+        conversionActions.innerHTML = '';
+        modeHelper.textContent = '';
+        productPreview.classList.remove('d-none');
+        
+        previewName.textContent = product.name;
+        previewSku.textContent = product.item_number;
+        previewUnits.textContent = `${product.main_unit || '-'} / ${product.secondary_unit || '-'}`;
+        
+        if (product.image_url) {
+          previewImage.src = product.image_url;
+          previewImage.classList.remove('d-none');
+        } else {
+          previewImage.classList.add('d-none');
+        }
+
+        options.forEach((option) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          // New Button Style
+          btn.className = 'btn btn-outline-secondary border-0 bg-white shadow-sm fw-semibold py-2 flex-fill';
+          btn.style.minWidth = '120px';
+          btn.innerHTML = `<span class="d-block">${option.label}</span><span class="d-block small text-muted fw-normal" style="font-size: 0.7rem;">${option.helper}</span>`;
+          
+          btn.addEventListener('mouseenter', () => {
+              btn.classList.add('text-success');
+              btn.style.backgroundColor = '#f0fdf4';
+          });
+          btn.addEventListener('mouseleave', () => {
+              btn.classList.remove('text-success');
+              btn.style.backgroundColor = '#fff';
+          });
+
+          btn.addEventListener('click', () => applyConversion(option));
+          conversionActions.appendChild(btn);
+        });
+      }
+
+      function applyConversion(option) {
+        if (!pendingProduct) {
+          showError('Първо сканирайте продукт.');
+          return;
+        }
+        let qty = parseFloat(qtyInput.value);
+        if (isNaN(qty) || qty <= 0) {
+          showError('Количеството трябва да е > 0.');
+          qtyInput.focus();
+          return;
+        }
+        const converted = option.convert ? option.convert(qty) : qty;
+        
+        upsertItem(pendingProduct, converted, {
+          unitLabel: option.unitLabel,
+          unitMode: option.unitMode,
+          imageUrl: pendingProduct.image_url,
+        });
+        
+        hidePreview();
+        hideManualWarning();
+        resetFocus();
+        qtyInput.value = '1';
+      }
+
+      async function addScannedItem() {
+        clearError();
+        hideManualWarning();
+        const rawCode = scanInput.value.trim();
+        if (!rawCode) {
+          showError('Въведете баркод.');
+          scanInput.focus();
+          return;
+        }
+
+        // Show loading state if needed, or just await
+        const product = await lookupProduct(rawCode);
+        
+        if (!product) {
+          showError('Непознат баркод/код.');
+          scanInput.value = '';
+          scanInput.focus();
+          return;
+        }
+
+        const options = buildConversionOptions(product);
+        if (!options.length) {
+          hidePreview();
+          showManualWarning('Ръчен режим: Артикулът няма автоматични единици.');
+          scanInput.value = '';
+          scanInput.focus();
+          return;
+        }
+
+        pendingProduct = product;
+        showConversionOptions(product, options);
+        
+        // Auto-select if only one logical option exists
+        const autoOption = options.find((opt) => opt.autoAdd);
+        if (autoOption && options.length === 1) {
+            applyConversion(autoOption);
+        }
+      }
+
+      async function lookupProduct(code) {
+        const clean = code.trim();
+        if (!clean) return null;
+        const urls = [
+          `/products/lookup?barcode=${encodeURIComponent(clean)}`,
+          `/products/lookup?item_number=${encodeURIComponent(clean)}`,
+        ];
+        for (const url of urls) {
+          try {
+            const response = await fetch(url);
+            if (response.ok) return await response.json();
+          } catch (error) { continue; }
+        }
+        return null;
+      }
+
+      itemsContainer.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action]');
+        if (!button) return;
+        const row = button.closest('[data-item-code]');
+        const code = row.dataset.itemCode;
+        const data = itemsMap.get(code);
+        if (!data) return;
+
+        if (button.dataset.action === 'remove') {
+          if(confirm('Изтриване на реда?')) {
+              itemsMap.delete(code);
+              row.remove();
+              syncState();
+          }
+          return;
+        }
+        if (button.dataset.action === 'increment') {
+          if (data.unitMode !== 'pieces' && data.unitMode !== 'pieces_from_packages') {
+            showError('Този артикул не може да се увеличава автоматично.');
+            return;
+          }
+          upsertItem({item_number: code}, 1, {unitLabel: data.unit, unitMode: data.unitMode, imageUrl: data.imageUrl});
+          return;
+        }
+        if (button.dataset.action === 'edit') {
+          const next = prompt('Въведи ново количество:', data.quantity);
+          if (next === null) return;
+          const nextQty = parseFloat(next);
+          if (isNaN(nextQty) || nextQty <= 0) {
+            showError('Невалидно количество.');
+            return;
+          }
+          itemsMap.set(code, { ...data, quantity: nextQty });
+          renderRow(code);
+        }
+      });
+
+      addBtn.addEventListener('click', addScannedItem);
+      scanInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); addScannedItem(); }
+      });
+      qtyInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); addScannedItem(); }
+      });
+
+      // Load Existing
+      existingItems.forEach((item) => {
+        const unitMode = item.unit_mode || (isPiecesUnit(item.unit) ? 'pieces' : (isPackageUnit(item.unit) ? 'packages' : 'manual'));
+        itemsMap.set(item.item_number, {
+          name: item.name,
+          brand: item.brand,
+          storage_location: item.storage_location,
+          unit: item.unit || 'бр.',
+          unitMode,
+          quantity: parseFloat(item.quantity),
+          imageUrl: item.image_url,
+          item_number: item.item_number,
+        });
+        renderRow(item.item_number);
+      });
+      
+      syncState();
+      resetFocus();
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- 1. HEADER: List Details -->
+<div class="info-card p-4 mb-4 fade-in">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 text-success mb-1">
+                <i class="bi bi-pencil-square"></i>
+                <span class="fw-bold text-uppercase small">Режим на редакция</span>
+            </div>
+            <h1 class="h3 fw-bold text-dark mb-1">{{ "Редакция на списък" if is_edit else "Нов списък" }}</h1>
+            <p class="text-muted mb-0 small">Склад: <strong class="text-dark">{{ user_warehouse.name }}</strong> ({{ user_warehouse.code }})</p>
+        </div>
+        <!-- Save/Cancel Buttons moved to sticky footer, but keep quick exit here if needed -->
+    </div>
+</div>
+
+<form method="post" action="{{ form_action }}" id="simple-list-form" class="d-flex flex-column gap-4 position-relative">
+  
+  <!-- 2. SETTINGS: Title & Location -->
+  <div class="row g-3 fade-in" style="animation-delay: 0.1s;">
+      <div class="col-md-8">
+          <div class="form-floating">
+            <input type="text" name="title" id="listTitle" class="form-control bg-white border-0 shadow-sm rounded-3" required value="{{ product_list.title if is_edit else '' }}" placeholder="Име">
+            <label for="listTitle" class="text-muted">Име на списък (напр. Инвентаризация Зона А)</label>
+          </div>
+      </div>
+      <div class="col-md-4">
+          <div class="form-floating">
+            <input type="text" name="storage_location" id="listLoc" class="form-control bg-white border-0 shadow-sm rounded-3" value="{{ product_list.storage_location if is_edit else '' }}" placeholder="Локация">
+            <label for="listLoc" class="text-muted">Локация (Опционално)</label>
+          </div>
+      </div>
+  </div>
+
+  <!-- 3. SCANNER CONSOLE (The Hero) -->
+  <div class="scanner-console p-4 fade-in" style="animation-delay: 0.2s;">
+    
+    <label class="form-label-custom"><i class="bi bi-upc-scan me-1"></i> Скенер</label>
+    
+    <div class="row g-3 align-items-stretch">
+        <!-- Scan Input -->
+        <div class="col-lg-7">
+            <input type="text" id="scan-input" class="form-control-scan w-100" autocomplete="off" placeholder="Сканирай баркод..." autofocus>
+        </div>
+        
+        <!-- Qty Input -->
+        <div class="col-lg-2 col-4">
+            <input type="number" id="quantity-input" class="form-control-scan text-center" value="1" min="0.01" step="0.01" placeholder="Кол.">
+        </div>
+        
+        <!-- Action Button -->
+        <div class="col-lg-3 col-8">
+            <button type="button" class="btn-scan-action w-100 h-100 d-flex align-items-center justify-content-center gap-2" id="add-item-btn">
+                <span>ДОБАВИ</span> <i class="bi bi-arrow-return-left"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ALERTS AREA -->
+    <div class="mt-3">
+        <div class="alert alert-soft-danger d-none shadow-sm" id="scan-error"></div>
+        <div class="alert alert-soft-warning d-none shadow-sm" id="manual-warning"></div>
+    </div>
+
+    <!-- PREVIEW CARD (Hidden by default) -->
+    <div class="preview-card p-3 mt-3 d-none" id="product-preview">
+        <div class="d-flex flex-column flex-md-row align-items-center gap-3">
+          <img id="preview-image" class="preview-thumb d-none shadow-sm" alt="Prod">
+          <div class="text-center text-md-start flex-grow-1">
+            <div class="fw-bold text-dark" id="preview-name" style="line-height: 1.2;"></div>
+            <div class="text-muted small font-monospace mt-1" id="preview-sku"></div>
+            <div class="text-muted small mt-1" id="preview-units"></div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 justify-content-center w-100 w-md-auto" id="conversion-actions"></div>
+        </div>
+        <div class="text-center text-muted small mt-2 fst-italic" id="mode-helper"></div>
+    </div>
+    
+    <p class="text-muted small mt-3 mb-0 text-center opacity-75">
+        <i class="bi bi-info-circle"></i> Натиснете <strong>Enter</strong> след сканиране. Ако продукта няма "брой", ще се добави ръчно.
+    </p>
+  </div>
+
+  <!-- 4. ITEMS LIST -->
+  <div class="fade-in" style="animation-delay: 0.3s;">
+    <div class="d-flex justify-content-between align-items-end mb-3 px-1">
+      <h2 class="h5 fw-bold text-dark mb-0">Продукти</h2>
+      <div class="text-muted bg-white px-3 py-1 rounded-pill shadow-sm border border-light small" id="items-summary">0 реда</div>
+    </div>
+    
+    <div id="simple-items" class="d-none">
+        <!-- Rows injected by JS -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="items-empty" class="text-center py-5 border border-2 border-dashed border-light rounded-4 bg-white">
+        <div class="mb-3 text-muted opacity-25">
+            <i class="bi bi-basket3 fs-1"></i>
+        </div>
+        <h5 class="fw-normal text-muted">Списъкът е празен</h5>
+        <p class="small text-muted">Сканирайте първия продукт от панела по-горе.</p>
+    </div>
+  </div>
+
+  <!-- 5. STICKY FOOTER ACTIONS -->
+  <div class="action-bar d-flex justify-content-between align-items-center gap-3 shadow-lg">
+    <div>
+        {% if is_edit %}
+          <a href="{{ url_for('logistics.simple_list_detail', list_id=product_list.id) }}" class="btn btn-link text-muted text-decoration-none">Отказ</a>
+        {% else %}
+          <a href="{{ url_for('logistics.simple_list_index') }}" class="btn btn-link text-muted text-decoration-none">Назад</a>
+        {% endif %}
+    </div>
+    <button type="submit" class="btn btn-dark btn-lg rounded-3 px-5 shadow-sm">
+      <i class="bi bi-cloud-arrow-up-fill me-2"></i> {{ "Запази промените" if is_edit else "Създай списък" }}
+    </button>
+  </div>
+
+</form>
+{% endblock %}

@@ -1,0 +1,240 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Управление на Категории{% endblock %}
+
+{% block extra_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4 fade-in" style="max-width: 1600px;">
+
+    <!-- 1. HERO HEADER -->
+    <div class="admin-hero-card mb-4" style="padding: 2rem;">
+        <div class="d-flex align-items-center gap-4 hero-content">
+            <a href="{{ url_for('admin.panel') }}" class="btn-circle-glass" title="Назад към таблото">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <span class="hero-subtitle">
+                    <i class="bi bi-diagram-3-fill me-1"></i> КАТАЛОГ / СТРУКТУРА
+                </span>
+                <h1 class="hero-title-large" style="font-size: 1.8rem;">Категории</h1>
+            </div>
+        </div>
+        <div class="hero-content d-none d-md-block">
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-end">
+                    <div class="text-white fw-bold fs-5">{{ categories|length }}</div>
+                    <div class="text-white opacity-50 small text-uppercase fw-bold">Активни Групи</div>
+                </div>
+                <div class="vr bg-white opacity-25" style="height: 30px;"></div>
+                <div class="text-end">
+                    <div class="text-white fw-bold fs-5">{{ stats.products_count|default(0) }}</div>
+                    <div class="text-white opacity-50 small text-uppercase fw-bold">Продукти</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        
+        <!-- LEFT COLUMN: TREE STRUCTURE -->
+        <div class="col-12 col-lg-7 col-xl-8">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="fw-bold text-muted text-uppercase small ls-1">Дървовидна структура</h6>
+                <span class="badge bg-light text-dark border">Level 1 → Level 3</span>
+            </div>
+
+            {% for category in categories %}
+                <!-- Визуален отстъп според нивото -->
+                <div class="tree-card" style="margin-left: {{ ((category.level or 1) - 1) * 32 }}px;">
+                    
+                    <!-- Thumbnail -->
+                    {% if category.image_url %}
+                        <img src="{{ category.image_url }}" alt="img" class="tree-thumb flex-shrink-0">
+                    {% else %}
+                        <div class="tree-thumb flex-shrink-0 d-flex align-items-center justify-content-center text-muted bg-light">
+                            <i class="bi bi-folder"></i>
+                        </div>
+                    {% endif %}
+
+                    <!-- Content -->
+                    <div class="tree-content flex-grow-1">
+                        <div class="d-flex align-items-center gap-2">
+                            <h6>{{ category.name }}</h6>
+                            {% if category.products and category.products|length > 0 %}
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 py-1" style="font-size: 0.6rem;">
+                                    {{ category.products|length }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <small>
+                            {% if category.parent %}
+                                <i class="bi bi-arrow-return-right me-1"></i> {{ category.parent.name }}
+                            {% else %}
+                                Основна категория
+                            {% endif %}
+                        </small>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="tree-actions d-flex flex-column gap-2">
+                        <a href="{{ url_for('admin.categories_panel', edit_id=category.id) }}" class="btn-icon-sm" title="Редактирай">
+                            <i class="bi bi-pencil-fill" style="font-size: 0.8rem;"></i>
+                        </a>
+                        <form method="post" action="{{ url_for('admin.delete_category', category_id=category.id) }}" onsubmit="return confirm('Сигурни ли сте, че искате да изтриете тази категория? Действието е необратимо.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-icon-sm text-danger" title="Изтрий">
+                                <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-diagram-3 display-4 opacity-25"></i>
+                    <p class="mt-3">Няма намерени категории. Създайте първата от формата вдясно.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- RIGHT COLUMN: STICKY FORM -->
+        <div class="col-12 col-lg-5 col-xl-4">
+            <div class="sticky-form-panel">
+                <div class="modern-card p-4 shadow-lg border-0">
+                    
+                    {% if edit_category %}
+                        <!-- EDIT MODE -->
+                        <div class="form-header-strip">
+                            <div class="smart-icon bg-orange-soft text-warning" style="background:#fff7ed; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                                <i class="bi bi-pencil-square fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="m-0 fw-bold text-dark">Редактиране</h6>
+                                <small class="text-muted">ID: {{ edit_category.id }}</small>
+                            </div>
+                            <a href="{{ url_for('admin.categories_panel') }}" class="btn btn-sm btn-light border ms-auto">Отказ</a>
+                        </div>
+
+                        <form method="post" action="{{ url_for('admin.update_category', category_id=edit_category.id) }}">
+                    {% else %}
+                        <!-- CREATE MODE -->
+                        <div class="form-header-strip">
+                            <div class="smart-icon bg-green-soft text-success" style="background:#f0fdf4; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                                <i class="bi bi-plus-lg fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="m-0 fw-bold text-dark">Нова Категория</h6>
+                                <small class="text-muted">Добавяне към структурата</small>
+                            </div>
+                        </div>
+
+                        <form method="post" action="{{ url_for('admin.categories_panel') }}">
+                    {% endif %}
+                    
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="mb-3">
+                            <label class="form-label-top">Име на категорията</label>
+                            <div class="input-surface">
+                                <div class="surface-icon"><i class="bi bi-tag-fill"></i></div>
+                                <input type="text" name="name" class="surface-input fw-bold" 
+                                       value="{{ edit_category.name if edit_category else '' }}" 
+                                       placeholder="Напр. Инструменти" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label-top">Родителска група</label>
+                            <div class="input-surface">
+                                <div class="surface-icon"><i class="bi bi-diagram-2"></i></div>
+                                <select name="parent_id" class="surface-input" style="cursor: pointer;">
+                                    <option value="">● Основна категория (Root)</option>
+                                    {% for option in parent_options %}
+                                        <!-- Предпазваме да не изберем себе си за родител -->
+                                        {% if not edit_category or option.id != edit_category.id %}
+                                            {% set level_depth = option.level|default(1)|int %}
+                                            {% set indent_depth = (level_depth - 1) if level_depth > 1 else 0 %}
+                                            <option value="{{ option.id }}" {% if edit_category and option.id == edit_category.parent_id %}selected{% endif %}>
+                                                {% for _ in range(indent_depth) %}
+                                                    &nbsp;&nbsp;
+                                                {% endfor %}
+                                                {% if level_depth > 1 %}↳{% endif %}
+                                                {{ option.name }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label-top">Описание</label>
+                            <div class="input-surface align-items-start pt-2">
+                                <div class="surface-icon pt-1"><i class="bi bi-justify-left"></i></div>
+                                <textarea name="description" class="surface-input" rows="3" placeholder="Незадължително описание...">{{ edit_category.description if edit_category else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label-top">SEO Заглавие</label>
+                            <div class="input-surface">
+                                <div class="surface-icon"><i class="bi bi-tags"></i></div>
+                                <input type="text" name="meta_title" class="surface-input"
+                                       value="{{ edit_category.meta_title if edit_category else '' }}"
+                                       placeholder="GStroy | Инструменти">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label-top">SEO Описание</label>
+                            <div class="input-surface">
+                                <div class="surface-icon"><i class="bi bi-pen"></i></div>
+                                <textarea name="meta_description" class="surface-input" rows="2" placeholder="Кратко съдържание за Google...">{{ edit_category.meta_description if edit_category else '' }}</textarea>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label-top">Canonical URL</label>
+                            <div class="input-surface">
+                                <div class="surface-icon"><i class="bi bi-link"></i></div>
+                                <input type="text" name="canonical_url" class="surface-input"
+                                       value="{{ edit_category.canonical_url if edit_category else '' }}"
+                                       placeholder="https://gstroy.bg/categories/gkb">
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label-top">URL Изображение</label>
+                            <div class="input-surface">
+                                <div class="surface-icon"><i class="bi bi-link-45deg"></i></div>
+                                <input type="text" name="image_url" class="surface-input" 
+                                       value="{{ edit_category.image_url if edit_category else '' }}" 
+                                       placeholder="https://...">
+                            </div>
+                        </div>
+
+                        {% if edit_category %}
+                            <button type="submit" class="btn-brand-glow w-100">
+                                <i class="bi bi-save me-2"></i> Запази промените
+                            </button>
+                        {% else %}
+                            <button type="submit" class="btn-brand-glow w-100">
+                                <i class="bi bi-plus-circle me-2"></i> Създай категория
+                            </button>
+                        {% endif %}
+
+                    </form>
+                </div>
+
+                <!-- Preview Box if Image Exists -->
+                {% if edit_category and edit_category.image_url %}
+                <div class="modern-card p-3 mt-3 text-center">
+                    <label class="form-label-top text-center mb-2">Текущо изображение</label>
+                    <img src="{{ edit_category.image_url }}" class="img-fluid rounded-3 border" style="max-height: 150px;">
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

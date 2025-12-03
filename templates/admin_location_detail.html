@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Локация: {{ location.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 600px;">
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <span class="text-uppercase fw-bold text-muted small" style="letter-spacing: 0.3em;">Складове</span>
+            <h1 class="m-0">{{ location.name }}</h1>
+            <p class="text-muted small mb-0">{{ location.code }}</p>
+        </div>
+        <a href="{{ url_for('admin.warehouse_detail', warehouse_id=location.warehouse_id) }}" class="btn btn-outline-secondary">Обратно</a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label small text-uppercase text-muted">Име</label>
+                    <input type="text" class="form-control" name="name" value="{{ location.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-uppercase text-muted">Код</label>
+                    <input type="text" class="form-control" name="code" value="{{ location.code }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-uppercase text-muted">Описание</label>
+                    <textarea name="description" rows="3" class="form-control">{{ location.description or '' }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-uppercase text-muted">Родителска локация</label>
+                    <select class="form-select" name="parent_id">
+                        <option value="">Няма</option>
+                        {% for loc in location.warehouse.locations if loc.id != location.id %}
+                        <option value="{{ loc.id }}" {% if location.parent_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" name="is_active" id="location-active" {% if location.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="location-active">Активна</label>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-brand-new">Запази</button>
+                    <form method="post" action="{{ url_for('admin.delete_location', location_id=location.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-outline-danger" type="submit">Изтрий</button>
+                    </form>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

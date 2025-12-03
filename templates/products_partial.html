@@ -1,0 +1,77 @@
+{% if view_mode == 'cards' %}
+    {% for product in products %}
+    <div class="col fade-in-item">
+        <a href="{{ url_for('products.product_detail', product_id=product.id) }}" class="prod-card text-decoration-none">
+            <div class="prod-img-box">
+                <div class="prod-badges">
+                    {% if product.is_special_offer %}<span class="badge-tag tag-promo">PROMO</span>{% endif %}
+                    {% if product.landing_page_accent %}<span class="badge-tag tag-new">TOP</span>{% endif %}
+                </div>
+                {% set img_src = product.image_url or 'images/no_image.png' %}
+                {% if not img_src.startswith('http') %}{% set img_src = url_for('static', filename=img_src.lstrip('/')) %}{% endif %}
+                <img src="{{ img_src }}" alt="{{ product.name }}" class="prod-img">
+            </div>
+            
+            <div class="prod-body">
+                <div class="prod-brand">{{ product.brand or 'GStroy' }}</div>
+                <div class="prod-title" title="{{ product.name }}">{{ product.name }}</div>
+                
+                <div class="prod-meta">
+                    <span class="badge bg-light text-secondary border rounded-pill fw-normal px-2">{{ product.item_number }}</span>
+                    {% if product.storage_location %}
+                        <span class="text-muted ms-auto" style="font-size: 0.75rem;">
+                            <i class="bi bi-geo-alt-fill text-success"></i> {{ product.storage_location }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="prod-footer">
+                    <div class="price-box">
+                        {% set display_price = product.visible_price_unit_1 or product.price_unit_1 %}
+                        {% set euro_price = (display_price / 1.95583) if display_price else 0 %}
+                        
+                        {% if product.promo_price_unit_1 %}
+                            <div class="price-old">{{ "%.2f"|format(display_price) }} лв.</div>
+                            <div class="price-val text-danger">
+                                {{ "%.2f"|format(product.promo_price_unit_1) }} <span class="price-unit">лв.</span>
+                            </div>
+                        {% elif display_price %}
+                            <div class="price-val">
+                                {{ "%.2f"|format(display_price) }} <span class="price-unit">лв.</span>
+                            </div>
+                            <div class="price-euro">≈ {{ "%.2f"|format(euro_price) }} €</div>
+                        {% else %}
+                            <div class="price-val text-muted fs-6">Запитване</div>
+                        {% endif %}
+                    </div>
+                    <button class="btn-icon-action">
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+
+{% else %}
+    <!-- TABLE ROWS -->
+    {% for product in products %}
+    <tr onclick="window.location='{{ url_for('products.product_detail', product_id=product.id) }}'" style="cursor: pointer;" class="fade-in-item">
+        <td class="ps-4 fw-bold font-monospace text-dark">{{ product.item_number }}</td>
+        <td>
+            <div class="fw-bold text-dark">{{ product.name }}</div>
+            <div class="small text-muted">{{ product.primary_group or '—' }}</div>
+        </td>
+        <td>{{ product.brand or '—' }}</td>
+        <td>{{ product.storage_location or '—' }}</td>
+        <td class="text-end pe-4">
+            {% set display_price = product.visible_price_unit_1 or product.price_unit_1 %}
+            {% if display_price %}
+                <div class="fw-bold text-dark">{{ "%.2f"|format(display_price) }} лв.</div>
+            {% else %}
+                <span class="text-muted small">—</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+{% endif %}

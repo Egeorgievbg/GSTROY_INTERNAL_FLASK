@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Приемане на Трансфер | GSTROY{% endblock %}
+
+{% block content %}
+<!-- HEADER -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4 fade-in">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                <i class="bi bi-qr-code-scan me-1"></i> INBOUND
+            </span>
+        </div>
+        <h1 class="h3 fw-bold text-dark mb-0">Приемане на стока</h1>
+        <p class="text-muted mb-0 small">Сканирайте QR код на пале или номер на документ за трансфер.</p>
+    </div>
+</div>
+
+<!-- SCANNER HERO -->
+<div class="row justify-content-center mb-5 fade-in" style="animation-delay: 0.1s;">
+    <div class="col-lg-8">
+        <form method="post" class="position-relative">
+            <div class="search-wrapper">
+                <input type="text" class="search-input-hero ps-5" name="code" value="{{ code }}" placeholder="Сканирай тук (напр. LST-2025...)" required autofocus autocomplete="off" onfocus="this.select()">
+                <i class="bi bi-upc-scan search-icon-fixed start-0 ms-3 text-muted fs-4"></i>
+                
+                <button type="submit" class="btn btn-brand-new position-absolute top-50 end-0 translate-middle-y me-2 shadow-sm">
+                    Провери
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if scanned_list %}
+<div class="row justify-content-center fade-in" style="animation-delay: 0.2s;">
+    <div class="col-lg-8">
+        
+        <!-- RESULT CARD -->
+        <div class="modern-card mb-4 border-success border-top border-top-4">
+            <!-- Header Strip -->
+            <div class="card-header-strip">
+                <div>
+                    <div class="text-muted small text-uppercase fw-bold mb-1">Резултат от сканиране</div>
+                    <h4 class="fw-bold text-dark mb-0">
+                        {{ scanned_list.title }}
+                        <span class="text-muted fs-6 font-monospace ms-2">{{ scanned_list.code }}</span>
+                    </h4>
+                </div>
+                
+                <div class="text-end">
+                    {% if scanned_list.is_pallet %}
+                        <span class="badge bg-dark text-white border mb-1 d-block"><i class="bi bi-box-seam me-1"></i>Пале {{ scanned_list.pallet_code }}</span>
+                    {% endif %}
+                    <span class="badge bg-light text-muted border text-uppercase">{{ scanned_list.status }}</span>
+                </div>
+            </div>
+
+            <div class="card-body-custom">
+                
+                <!-- Route Visualization -->
+                <div class="route-visual-lg mb-4">
+                    <div>
+                        <div class="text-xs text-muted text-uppercase mb-1">Изпратено от</div>
+                        <div class="wh-point"><i class="bi bi-building-fill-up text-primary me-1"></i> {{ scanned_list.current_warehouse.name }}</div>
+                    </div>
+                    
+                    <i class="bi bi-arrow-right wh-arrow text-muted mx-2"></i>
+                    
+                    <div>
+                        <div class="text-xs text-muted text-uppercase mb-1">Дестинация</div>
+                        <div class="wh-point">
+                            {% if scanned_list.target_warehouse %}
+                                <i class="bi bi-building-fill-down text-success me-1"></i> {{ scanned_list.target_warehouse.name }}
+                            {% else %}
+                                <span class="text-muted fst-italic">Не е зададена</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                {% if totals %}
+                <div class="stats-grid mb-4">
+                    <div class="stat-box">
+                        <div class="stat-label">Количество</div>
+                        <div class="stat-val">{{ "%.0f"|format(totals.total_quantity) }}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Тегло</div>
+                        <div class="stat-val">{{ "%.2f"|format(totals.total_weight) }} kg</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Обем</div>
+                        <div class="stat-val">{{ "%.3f"|format(totals.total_volume) }} m³</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- TRANSFER ACTION ZONE -->
+                {% if transfer %}
+                    <div class="bg-success bg-opacity-10 rounded-3 p-4 border border-success border-opacity-25 text-center">
+                        <h5 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill me-2"></i>Открит активен трансфер</h5>
+                        <p class="text-muted small mb-4">
+                            Трансферът е изпратен на <strong>{{ transfer.shipped_at.strftime('%d.%m.%Y %H:%M') if transfer.shipped_at else '—' }}</strong>.
+                            Потвърдете приемането, за да заприходите стоката.
+                        </p>
+                        
+                        <form method="post" action="{{ url_for('logistics.complete_receive', transfer_id=transfer.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="d-grid gap-2 d-sm-flex justify-content-center">
+                                <button type="submit" class="btn btn-brand-new btn-lg px-5 shadow-lg">
+                                    <i class="bi bi-box-arrow-in-down me-2"></i> ПРИЕМИ И ЗАПРИХОДИ
+                                </button>
+                                <a href="{{ url_for('logistics.pallet_detail', list_id=scanned_list.id) }}" class="btn btn-light border text-muted fw-bold px-4">
+                                    Преглед
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-3">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
+                        <div>
+                            <div class="fw-bold text-dark">Няма активен трансфер</div>
+                            <div class="small text-muted">Този списък/пале не е в процес на трансфер към ваш склад.</div>
+                        </div>
+                        <a href="{{ url_for('logistics.pallet_detail', list_id=scanned_list.id) }}" class="btn btn-sm btn-outline-dark ms-auto">Детайли</a>
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <!-- ITEMS LIST -->
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-light border-bottom py-3">
+                <h6 class="mb-0 fw-bold text-muted text-uppercase small">Съдържание ({{ scanned_list.items|length }})</h6>
+            </div>
+            <div class="table-responsive" style="max-height: 400px;">
+                <table class="table table-clean table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Продукт</th>
+                            <th class="text-end pe-4">Количество</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in scanned_list.items %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ item.product.name }}</div>
+                                <div class="small text-muted font-monospace">{{ item.product.item_number }}</div>
+                            </td>
+                            <td class="text-end pe-4">
+                                <span class="fw-bold fs-6">{{ "%.2f"|format(item.quantity) }}</span>
+                                <span class="text-muted small text-uppercase ms-1">{{ item.unit }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% elif code %}
+<div class="row justify-content-center fade-in">
+    <div class="col-lg-6">
+        <div class="text-center py-5 border border-2 border-dashed border-danger rounded-4 bg-white">
+            <i class="bi bi-x-circle text-danger fs-1 mb-3 d-block opacity-50"></i>
+            <h5 class="text-dark fw-bold">Няма резултат</h5>
+            <p class="text-muted">Не е намерен списък или пале с код <strong>"{{ code }}"</strong>.</p>
+            <a href="{{ url_for('logistics.receive') }}" class="btn btn-light border mt-2">Опитай пак</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

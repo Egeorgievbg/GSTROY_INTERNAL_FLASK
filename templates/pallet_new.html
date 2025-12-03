@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}{% if product_list %}Редакция на списък{% else %}Нов списък{% endif %}{% endblock %}
+{% block content %}
+<h1 class="mb-4">{% if product_list %}Редакция на списък {{ product_list.code }}{% else %}Нов списък{% endif %}</h1>
+<form method="post" action="{{ form_action }}">
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <label class="form-label">Наименование</label>
+      <input type="text" name="title" class="form-control" value="{{ product_list.title if product_list and product_list.title else '' }}" placeholder="Напр. Списък експедиция Варна">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Място в склада</label>
+      <input type="text" name="storage_location" class="form-control" value="{{ product_list.storage_location if product_list else '' }}" placeholder="A1-05">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Склад източник</label>
+      <select name="source_warehouse_id" class="form-select" required>
+        <option value="">Изберете...</option>
+        {% for warehouse in warehouses %}
+        <option value="{{ warehouse.id }}" {% if product_list and warehouse.id == product_list.current_warehouse_id %}selected{% endif %}>{{ warehouse.name }} ({{ warehouse.code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Склад получател</label>
+      <select name="destination_warehouse_id" class="form-select">
+        <option value="">--</option>
+        {% for warehouse in warehouses %}
+        <option value="{{ warehouse.id }}" {% if product_list and product_list.target_warehouse_id and warehouse.id == product_list.target_warehouse_id %}selected{% endif %}>{{ warehouse.name }} ({{ warehouse.code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <h4 class="mt-4">Редове</h4>
+  <p class="text-muted">Използвайте номенклатурен номер (или сканирайте баркод) и ще получите подсказка с име, бранд и локация.</p>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle pallet-items-table" id="items-table">
+      <thead class="table-light">
+        <tr>
+          <th width="45%">Номенклатурен №</th>
+          <th width="25%">Количество</th>
+          <th width="30%">Информация</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+  <button type="button" class="btn btn-outline-primary mb-4" id="add-row">Добави ред</button>
+
+  <div class="text-end">
+    <a href="{{ url_for('logistics.pallet_list') }}" class="btn btn-secondary">Отказ</a>
+    <button type="submit" class="btn btn-success">{% if product_list %}Запиши промените{% else %}Запиши списък{% endif %}</button>
+  </div>
+</form>
+
+<datalist id="product-options">
+  {% for product in product_options %}
+  <option value="{{ product.item_number }}">{{ product.name }}</option>
+  {% endfor %}
+</datalist>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  const tableBody = document.querySelector('#items-table tbody');
+  const addBtn = document.getElementById('add-row');
+  const existingItems = {{ existing_items|tojson }};
+  const productCache = {};
+
+  async function fetchProductInfo(itemNumber) {
+    const code = itemNumber.trim();
+    if (!code) return null;
+    if (productCache[code]) return productCache[code];
+    try {
+      const response = await fetch(`/products/lookup?item_number=${encodeURIComponent(code)}`);
+      if (!response.ok) {
+        productCache[code] = null;
+        return null;
+      }
+      const data = await response.json();
+      productCache[code] = data;
+      return data;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function addRow(itemNumber = '', quantity = '', initialInfo = '') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input list="product-options" type="text" name="item_number[]" class="form-control item-number-input" placeholder="MAT-0001" value="${itemNumber}" required>
+      </td>
+      <td><input type="number" name="quantity[]" class="form-control" step="0.01" min="0.01" value="${quantity}" required></td>
+      <td><small class="text-muted product-info">${initialInfo}</small></td>
+      <td class="text-end"><button type="button" class="btn btn-link text-danger p-0 remove-row">Премахни</button></td>
+    `;
+    tableBody.appendChild(tr);
+    bindRowEvents(tr);
+  }
+
+  function bindRowEvents(row) {
+    const input = row.querySelector('.item-number-input');
+    const infoEl = row.querySelector('.product-info');
+
+    async function updateInfo() {
+      const data = await fetchProductInfo(input.value);
+      if (data && data.name) {
+        const parts = [data.name];
+        if (data.brand) parts.push(data.brand);
+        if (data.storage_location) parts.push(`Локация: ${data.storage_location}`);
+        infoEl.textContent = parts.join(' • ');
+      } else if (input.value.trim()) {
+        infoEl.textContent = 'Не е намерен продукт.';
+      } else {
+        infoEl.textContent = '';
+      }
+    }
+
+    input.addEventListener('change', updateInfo);
+    input.addEventListener('blur', updateInfo);
+    if (input.value.trim()) {
+      updateInfo();
+    }
+  }
+
+  tableBody.addEventListener('click', (event) => {
+    if (event.target.classList.contains('remove-row')) {
+      event.target.closest('tr').remove();
+    }
+  });
+
+  addBtn.addEventListener('click', () => addRow());
+
+  if (existingItems.length) {
+    existingItems.forEach(item => addRow(item.item_number, item.quantity, item.name || ''));
+  } else {
+    addRow();
+  }
+</script>
+{% endblock %}

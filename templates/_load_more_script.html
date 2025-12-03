@@ -1,0 +1,48 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btn-load-more');
+    if (!btn) return;
+
+    btn.addEventListener('click', function() {
+        const nextPage = btn.getAttribute('data-next-page');
+        const spinner = btn.querySelector('.spinner-border');
+        const btnText = btn.querySelector('.btn-text');
+        const icon = btn.querySelector('.bi');
+        const container = document.getElementById('products-container'); // For cards
+        const tableBody = document.getElementById('products-table-body'); // For table
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        icon.classList.add('d-none');
+        btnText.textContent = 'Р—Р°СЂРµР¶РґР°РЅРµ...';
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', nextPage);
+        url.searchParams.set('partial', '1');
+
+        fetch(url)
+            .then(res => res.text())
+            .then(html => {
+                if (!html.trim()) {
+                    const loadSection = document.getElementById('load-more-section');
+                    if (loadSection) loadSection.remove();
+                    return;
+                }
+
+                if (container) {
+                    container.insertAdjacentHTML('beforeend', html);
+                } else if (tableBody) {
+                    tableBody.insertAdjacentHTML('beforeend', html);
+                }
+
+                btn.setAttribute('data-next-page', parseInt(nextPage, 10) + 1);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+                icon.classList.remove('d-none');
+                btnText.textContent = 'РџРѕРєР°Р¶Рё РѕС‰Рµ';
+            });
+    });
+});
+</script>

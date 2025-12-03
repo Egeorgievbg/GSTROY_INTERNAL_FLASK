@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% block title %}Трансфери & Прием | GSTROY{% endblock %}
+
+{% block content %}
+
+<!-- 1. HEADER -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4 fade-in">
+  <div>
+    <h1 class="h3 fw-bold text-dark mb-1">Трансфери и Логистика</h1>
+    <p class="text-muted mb-0">Управление на движението на стоки. Сканирайте за бърз прием.</p>
+  </div>
+  
+  <div class="bg-white p-1 rounded-3 shadow-sm border d-flex">
+    <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'cards' else 'text-muted' }}" href="{{ cards_url }}" title="Карти">
+      <i class="bi bi-grid-fill"></i>
+    </a>
+    <a class="btn btn-sm border-0 rounded-2 {{ 'bg-dark text-white shadow-sm' if view_mode == 'table' else 'text-muted' }}" href="{{ table_url }}" title="Таблица">
+      <i class="bi bi-list-ul"></i>
+    </a>
+  </div>
+</div>
+
+<!-- 2. ACTION HERO: SCAN TO RECEIVE -->
+<div class="row justify-content-center mb-5 fade-in" style="animation-delay: 0.1s;">
+    <div class="col-lg-8">
+        <!-- Fixed Form Action: 'transfers' instead of 'transfers_index' -->
+        <form method="post" class="position-relative" action="{{ url_for('logistics.transfers') }}">
+            <div class="search-wrapper">
+                <input type="text" class="search-input-hero ps-5" name="code" value="{{ code or '' }}" 
+                       placeholder="Сканирай Пале или Документ за ПРИЕМАНЕ..." 
+                       autocomplete="off" onfocus="this.select()" autofocus>
+                
+                <i class="bi bi-qr-code-scan search-icon-fixed start-0 ms-3 text-success fs-4"></i>
+                
+                <button type="submit" class="btn btn-brand-new position-absolute top-50 end-0 translate-middle-y me-2 shadow-sm">
+                    ПРОВЕРИ
+                </button>
+            </div>
+            <div class="text-center mt-2">
+                <small class="text-muted fst-italic"><i class="bi bi-lightning-charge-fill text-warning"></i> Сканирането автоматично зарежда формата за приемане.</small>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 3. DYNAMIC RESULT SECTION (Shows only after Scan) -->
+{% if scanned_list %}
+<div class="row justify-content-center fade-in mb-5" style="animation-delay: 0.1s;">
+    <div class="col-lg-9">
+        <!-- THE RESULT CARD (Green Border Top) -->
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden position-relative">
+            <div class="position-absolute top-0 start-0 end-0 bg-success" style="height: 6px;"></div>
+            
+            <div class="card-body p-4">
+                <!-- Result Header -->
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                                <i class="bi bi-check-circle-fill me-1"></i> ОТКРИТ РЕЗУЛТАТ
+                            </span>
+                            {% if scanned_list.is_pallet %}
+                                <span class="badge bg-dark text-white border font-monospace"><i class="bi bi-box-seam me-1"></i>{{ scanned_list.pallet_code }}</span>
+                            {% endif %}
+                        </div>
+                        <h2 class="fw-bold text-dark mb-0">{{ scanned_list.title }}</h2>
+                        <div class="text-muted small font-monospace">{{ scanned_list.code }}</div>
+                    </div>
+
+                    <!-- Route Vis in Result -->
+                    <div class="d-inline-flex align-items-center gap-3 p-2 rounded-3 bg-light border">
+                         <div>
+                            <div class="text-xs text-muted text-uppercase fw-bold">От</div>
+                            <div class="fw-bold text-dark">{{ scanned_list.current_warehouse.name }}</div>
+                        </div>
+                        <i class="bi bi-arrow-right text-success fs-5"></i>
+                        <div>
+                            <div class="text-xs text-muted text-uppercase fw-bold">До</div>
+                            <div class="fw-bold text-dark">
+                                {{ scanned_list.target_warehouse.name if scanned_list.target_warehouse else 'Локален' }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Row -->
+                {% if totals %}
+                <div class="row g-3 mb-4">
+                    <div class="col-4">
+                        <div class="p-3 rounded-3 border bg-white text-center">
+                            <div class="text-muted small text-uppercase fw-bold">Количество</div>
+                            <div class="fw-bold fs-4">{{ "%.0f"|format(totals.total_quantity) }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 rounded-3 border bg-white text-center">
+                            <div class="text-muted small text-uppercase fw-bold">Тегло</div>
+                            <div class="fw-bold fs-4">{{ "%.2f"|format(totals.total_weight) }} <small class="fs-6 text-muted fw-normal">kg</small></div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-3 rounded-3 border bg-white text-center">
+                            <div class="text-muted small text-uppercase fw-bold">Обем</div>
+                            <div class="fw-bold fs-4">{{ "%.3f"|format(totals.total_volume) }} <small class="fs-6 text-muted fw-normal">m³</small></div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- ACTION AREA -->
+                {% if transfer %}
+                    <div class="bg-success bg-opacity-10 rounded-4 p-4 border border-success border-opacity-25 text-center">
+                        <h4 class="fw-bold text-success mb-2">Готов за приемане?</h4>
+                        <p class="text-muted mb-4">
+                            Трансфер <strong>#{{ transfer.id }}</strong> е изпратен на {{ transfer.shipped_at.strftime('%d.%m %H:%M') }}.
+                            <br>Потвърждаването ще заприходи стоката във вашия склад.
+                        </p>
+                        
+                        <form method="post" action="{{ url_for('logistics.complete_receive', transfer_id=transfer.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-brand-new btn-lg px-5 shadow-lg py-3 w-100 w-md-auto">
+                                <i class="bi bi-box-arrow-in-down me-2"></i> ПРИЕМИ СТОКАТА
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-3 mb-0">
+                        <i class="bi bi-exclamation-triangle-fill fs-3 text-warning"></i>
+                        <div>
+                            <div class="fw-bold text-dark">Внимание: Няма активен трансфер</div>
+                            <div class="small text-muted">Този списък съществува, но не е в процес на трансфер към вас.</div>
+                        </div>
+                        <a href="{{ url_for('logistics.pallet_detail', list_id=scanned_list.id) }}" class="btn btn-light border ms-auto">Виж Детайли</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% elif code %}
+<!-- Error State -->
+<div class="row justify-content-center mb-5 fade-in">
+    <div class="col-lg-6">
+        <div class="alert alert-danger border-0 shadow-sm rounded-4 text-center p-4">
+            <i class="bi bi-qr-code text-danger fs-1 mb-2"></i>
+            <h5 class="fw-bold">Невалиден код</h5>
+            <p class="mb-0">Не бе открит списък или трансфер с код "<strong>{{ code }}</strong>".</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- 4. HISTORY SECTION (Updated Cards) -->
+<div class="d-flex align-items-center justify-content-between mb-3 mt-2 fade-in" style="animation-delay: 0.2s;">
+    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>История на Трансферите</h5>
+    
+    <div class="search-wrapper" style="max-width: 250px;">
+        <input type="text" class="form-control form-control-sm bg-white border-0 shadow-sm ps-4" id="historyFilter" placeholder="Филтрирай списъка...">
+        <i class="bi bi-filter position-absolute top-50 start-0 translate-middle-y ms-2 text-muted"></i>
+    </div>
+</div>
+
+<div class="fade-in" style="animation-delay: 0.3s;">
+{% if view_mode == 'cards' %}
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    {% for doc in documents %}
+      <div class="col history-item" data-search-value="{{ (doc.code ~ ' ' ~ doc.product_list.code ~ ' ' ~ doc.from_warehouse.name ~ ' ' ~ doc.to_warehouse.name) | lower }}">
+        
+        <!-- MODERN CARD (MATCHING PALLET STYLE) -->
+        <div class="modern-card h-100">
+          <!-- Card Header -->
+          <div class="card-header-strip pb-0 border-0 bg-transparent pt-3 px-3">
+             <div class="d-flex justify-content-between align-items-center w-100">
+                 <div class="d-flex align-items-center gap-2">
+                     <!-- Тъмно зелена икона за трансфер -->
+                     <i class="bi bi-arrow-left-right" style="color: var(--brand-green-dark); font-size: 1.2rem;"></i>
+                     <span class="fw-bold text-dark font-monospace" style="font-size: 0.95rem;">{{ doc.code }}</span>
+                 </div>
+                 
+                 <!-- Rounded Pill Status -->
+                 {% if doc.status == 'shipped' %}
+                    <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">
+                        <i class="bi bi-truck me-1"></i> SHIPPED
+                    </span>
+                 {% elif doc.status == 'received' %}
+                    <span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                        <i class="bi bi-check-circle-fill me-1"></i> ПОЛУЧЕН
+                    </span>
+                 {% else %}
+                    <span class="badge rounded-pill bg-light text-muted border px-2 py-1">
+                        <i class="bi bi-circle me-1"></i> СЪЗДАДЕН
+                    </span>
+                 {% endif %}
+             </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body-custom pt-2">
+            <!-- Main Title (List Name) -->
+            <h5 class="fw-bold text-dark mb-1 text-truncate" title="{{ doc.product_list.title }}">
+                {{ doc.product_list.title }}
+            </h5>
+            <!-- Subtitle (List Code) -->
+            <div class="small font-monospace text-muted mb-3">
+                 <i class="bi bi-box-seam me-1"></i>{{ doc.product_list.code }}
+            </div>
+
+            <!-- Location Box (Grey Box Style) -->
+            <div class="location-visual mb-3" style="background-color: #f8fafc; border-radius: 8px; padding: 10px;">
+                <div class="d-flex align-items-center gap-2" style="font-size: 0.9rem;">
+                    <!-- Source -->
+                    <i class="bi bi-building-fill-up text-primary"></i>
+                    <span class="fw-bold text-dark text-truncate" style="max-width: 40%;">{{ doc.from_warehouse.name }}</span>
+                    
+                    <i class="bi bi-arrow-right text-muted mx-1"></i>
+                    
+                    <!-- Dest -->
+                    <i class="bi bi-building-fill-down text-success"></i>
+                    <span class="fw-bold text-dark text-truncate" style="max-width: 40%;">{{ doc.to_warehouse.name }}</span>
+                </div>
+            </div>
+
+            <!-- Timeline Grid -->
+            <div class="d-flex justify-content-between align-items-end mt-auto mb-3 pt-2 border-top border-light" style="font-size: 0.75rem;">
+                <div class="text-start">
+                    <div class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Създаден</div>
+                    <div class="fw-bold text-dark">{{ doc.created_at.strftime('%d.%m') }}</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Изпратен</div>
+                    {% if doc.shipped_at %}
+                        <div class="fw-bold text-primary">{{ doc.shipped_at.strftime('%d.%m') }}</div>
+                    {% else %}<span class="text-muted opacity-50">–</span>{% endif %}
+                </div>
+                <div class="text-end">
+                    <div class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Приет</div>
+                    {% if doc.received_at %}
+                        <div class="fw-bold text-success">{{ doc.received_at.strftime('%d.%m') }}</div>
+                    {% else %}<span class="text-muted opacity-50">–</span>{% endif %}
+                </div>
+            </div>
+            
+            <!-- GREEN NEON ACTION BUTTON -->
+            <a href="{{ url_for('logistics.pallet_detail', list_id=doc.product_list.id) }}" class="btn-brand-new text-white text-decoration-none d-flex align-items-center justify-content-center gap-2 w-100 shadow-sm">
+                <span>ПРЕГЛЕД</span> <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    {% else %}
+      <div class="col-12">
+        <div class="text-center py-5 border border-2 border-dashed rounded-4 bg-white">
+            <div class="mb-3">
+                <span class="d-inline-block p-3 rounded-circle bg-light text-muted">
+                    <i class="bi bi-truck fs-1"></i>
+                </span>
+            </div>
+            <h5 class="text-muted fw-normal">Няма активни трансфери</h5>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+{% else %}
+  <!-- Table View (Updated Icons) -->
+  <div class="modern-card p-0 border shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-modern table-hover mb-0 align-middle">
+        <thead>
+          <tr>
+            <th class="ps-4">Документ</th>
+            <th>Списък / Пале</th>
+            <th>Маршрут</th>
+            <th>Статус</th>
+            <th>Изпратен</th>
+            <th>Приет</th>
+            <th class="text-end pe-4"></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for doc in documents %}
+          <tr class="history-item cursor-pointer" data-search-value="{{ (doc.code ~ ' ' ~ doc.product_list.code ~ ' ' ~ doc.from_warehouse.name ~ ' ' ~ doc.to_warehouse.name) | lower }}" onclick="window.location='{{ url_for('logistics.pallet_detail', list_id=doc.product_list.id) }}'">
+            <td class="ps-4 fw-bold font-monospace text-dark">
+                <i class="bi bi-file-text text-success me-2"></i>{{ doc.code }}
+            </td>
+            <td>
+                <div class="fw-bold text-dark">{{ doc.product_list.title }}</div>
+                <div class="small text-muted font-monospace">{{ doc.product_list.code }}</div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center gap-2 small">
+                    <span class="fw-medium text-dark">{{ doc.from_warehouse.name }}</span>
+                    <i class="bi bi-arrow-right text-muted"></i>
+                    <span class="fw-medium text-dark">{{ doc.to_warehouse.name }}</span>
+                </div>
+            </td>
+            <td>
+                 {% if doc.status == 'shipped' %}
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">SHIPPED</span>
+                 {% elif doc.status == 'received' %}
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">RECEIVED</span>
+                 {% else %}
+                    <span class="badge bg-light text-muted border rounded-pill">CREATED</span>
+                 {% endif %}
+            </td>
+            <td class="small text-muted">
+                {% if doc.shipped_at %}{{ doc.shipped_at.strftime('%d.%m %H:%M') }}{% else %}–{% endif %}
+            </td>
+            <td class="small text-muted">
+                {% if doc.received_at %}{{ doc.received_at.strftime('%d.%m %H:%M') }}{% else %}–{% endif %}
+            </td>
+            <td class="text-end pe-4">
+                <div class="btn btn-sm btn-light rounded-circle border">
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-center py-5 text-muted">Няма данни.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    // Simple script to filter the history list without reloading
+    document.getElementById('historyFilter').addEventListener('input', function(e) {
+        const val = e.target.value.toLowerCase();
+        document.querySelectorAll('.history-item').forEach(item => {
+            const text = item.getAttribute('data-search-value');
+            if(text.includes(val)) {
+                item.style.display = ''; 
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+  </script>
+<style>
+    .cursor-pointer { cursor: pointer; }
+    .btn-brand-new {
+        background: linear-gradient(135deg, #a6cf39 0%, #7ca323 100%);
+        border: none;
+        box-shadow: 0 4px 12px rgba(166, 207, 57, 0.3);
+        transition: all 0.2s;
+    }
+    .btn-brand-new:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(166, 207, 57, 0.4);
+    }
+</style>
+{% endblock %}

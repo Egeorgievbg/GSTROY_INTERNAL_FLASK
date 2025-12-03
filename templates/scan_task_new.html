@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Нова Scan задача{% endblock %}
+{% block content %}
+<h1 class="mb-4">Нова Scan задача</h1>
+<form method="post">
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <label class="form-label">Име</label>
+      <input type="text" name="name" class="form-control" placeholder="Ревизия рафтове 1-3" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Тип</label>
+      <select name="type" class="form-select">
+        <option value="inventory">inventory</option>
+        <option value="issue">issue</option>
+        <option value="receipt">receipt</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Склад</label>
+      <select name="warehouse_id" class="form-select" required>
+        <option value="">Изберете...</option>
+        {% for warehouse in warehouses %}
+        <option value="{{ warehouse.id }}">{{ warehouse.name }} ({{ warehouse.code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Импорт от съществуващ списък</label>
+    <select name="source_list_id" class="form-select">
+      <option value="">-- По избор --</option>
+      {% for plist in product_lists %}
+      <option value="{{ plist.id }}">{{ plist.code }} - {{ plist.title }}</option>
+      {% endfor %}
+    </select>
+    <small class="text-muted">Изберете Pallet/List за автоматично попълване на баркодове. Можете да добавите и допълнителни редове отдолу.</small>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Списък от баркодове и количества</label>
+    <textarea name="input_list" class="form-control" rows="12" placeholder="BARCODE количество (разделени с интервал, таб или ;)"></textarea>
+    <small class="text-muted">Формат: <code>BARCODE количество</code> на всеки ред. Разделител може да бъде интервал, таб или <code>;</code>. Пример:<br>3800972027992 1<br>3800236936732 2</small>
+  </div>
+  <button type="submit" class="btn btn-success">Създай задача</button>
+  <a href="{{ url_for('scanning.scan_task_list') }}" class="btn btn-link">Отказ</a>
+</form>
+{% endblock %}

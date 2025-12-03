@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="bg">
+<head>
+    <meta charset="utf-8">
+    <title>Scanbot Style AR Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            background-color: #000; 
+            color: #fff; 
+            font-family: system-ui, -apple-system, sans-serif; 
+            overflow: hidden; 
+            touch-action: none; /* Спира зуум с пръсти по грешка */
+        }
+
+        #camera-container {
+            position: relative;
+            width: 100vw;
+            height: 70vh; 
+            background: #000;
+            overflow: hidden;
+            border-bottom: 1px solid #333;
+        }
+
+        #video { display: none; }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* UI Overlay */
+        .overlay-ui {
+            position: absolute; top: 20px; left: 0; right: 0;
+            pointer-events: none; z-index: 10;
+            text-align: center;
+        }
+
+        .status-pill {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Списък с резултати */
+        #results-area {
+            height: 30vh;
+            background: #0f172a;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #list-container {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-top: 10px;
+        }
+
+        .result-item {
+            background: #1e293b;
+            margin-bottom: 8px;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #22c55e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        @keyframes slideIn { 
+            from { transform: translateX(-20px); opacity: 0; } 
+            to { transform: translateX(0); opacity: 1; } 
+        }
+        
+        .code-font { 
+            font-family: 'JetBrains Mono', monospace; 
+            font-weight: 700; 
+            font-size: 1.1rem; 
+            color: #f8fafc;
+        }
+        
+        .format-badge {
+            font-size: 0.7rem;
+            background: #334155;
+            color: #94a3b8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        #start-btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+<!-- AR VIEW -->
+<div id="camera-container">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    
+    <div class="overlay-ui">
+        <span id="status-text" class="status-pill">Натисни СТАРТ</span>
+    </div>
+
+    <button id="start-btn" class="btn btn-success btn-lg fw-bold rounded-pill shadow-lg px-5 py-3">
+        <i class="bi bi-qr-code-scan"></i> СТАРТ
+    </button>
+</div>
+
+<!-- RESULTS LIST -->
+<div id="results-area">
+    <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-2">
+        <div class="text-light fw-bold">
+            <i class="bi bi-upc-scan"></i> Сканирани: <span id="count" class="text-success">0</span>
+        </div>
+        <button onclick="clearData()" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-trash3"></i> Изчисти
+        </button>
+    </div>
+    <div id="list-container"></div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const statusText = document.getElementById('status-text');
+    const listContainer = document.getElementById('list-container');
+    const countSpan = document.getElementById('count');
+    const startBtn = document.getElementById('start-btn');
+
+    // Използваме Set за бърза проверка дали кода вече го имаме
+    let collectedCodes = new Set(); 
+    let isScanning = false;
+    let barcodeDetector;
+
+    // 1. Инициализация на детектора
+    if ('BarcodeDetector' in window) {
+        barcodeDetector = new BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'itf', 'data_matrix']
+        });
+    } else {
+        alert("Внимание: Този браузър не поддържа вградения BarcodeDetector. Моля използвайте Chrome на Android или по-нова версия.");
+    }
+
+    startBtn.addEventListener('click', startCamera);
+
+    async function startCamera() {
+        startBtn.style.display = 'none';
+        statusText.innerText = "Инициализиране...";
+
+        try {
+            // Задаваме висока резолюция за по-добро разпознаване
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: { exact: "environment" }, 
+                    width: { ideal: 1920 }, 
+                    height: { ideal: 1080 },
+                    focusMode: "continuous"
+                },
+                audio: false
+            });
+            
+            video.srcObject = stream;
+            await video.play();
+
+            isScanning = true;
+            statusText.innerText = "Сканирайте баркодове...";
+            requestAnimationFrame(renderLoop);
+
+        } catch (err) {
+            // Fallback за лаптопи/десктоп
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                await video.play();
+                isScanning = true;
+                requestAnimationFrame(renderLoop);
+            } catch (e) {
+                alert("Грешка с камерата: " + err.message);
+                startBtn.style.display = 'block';
+            }
+        }
+    }
+
+    async function renderLoop() {
+        if (!isScanning) return;
+
+        // Синхронизиране на размера на canvas с видеото
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+        }
+
+        // Рисуване на текущия кадър
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        try {
+            const barcodes = await barcodeDetector.detect(video);
+            
+            // Рисуваме затъмняване (Vignette) за по-добър фокус
+            ctx.fillStyle = "rgba(0,0,0,0.1)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (barcodes.length > 0) {
+                statusText.innerText = `Засечени: ${barcodes.length}`;
+                
+                barcodes.forEach(barcode => {
+                    const rawValue = barcode.rawValue;
+                    const box = barcode.boundingBox;
+                    
+                    // ЛОГИКА ЗА СЪСТОЯНИЕТО:
+                    // Вече сканиран ли е този код?
+                    const isAlreadyScanned = collectedCodes.has(rawValue);
+
+                    // Цветове според състоянието
+                    // Зелен (New) или Син (Saved)
+                    const color = isAlreadyScanned ? "#3b82f6" : "#22c55e"; 
+                    const label = isAlreadyScanned ? "ЗАПАЗЕН" : rawValue;
+                    const glowColor = isAlreadyScanned ? "rgba(59, 130, 246, 0.5)" : "rgba(34, 197, 94, 0.5)";
+
+                    // 1. Рисуваме кутията
+                    drawRoundedRect(ctx, box.x, box.y, box.width, box.height, 10, color, 4);
+
+                    // 2. Рисуваме фон за текста
+                    const textWidth = ctx.measureText(label).width + 20;
+                    ctx.fillStyle = color;
+                    
+                    // Рисуваме "етикет" над кутията
+                    ctx.beginPath();
+                    ctx.roundRect(box.x, box.y - 35, Math.max(textWidth, 100), 30, 5);
+                    ctx.fill();
+
+                    // 3. Текст
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "bold 16px 'JetBrains Mono', monospace";
+                    ctx.fillText(label, box.x + 10, box.y - 14);
+
+                    // 4. АКО Е НОВ -> Добавяме го
+                    if (!isAlreadyScanned) {
+                        addToList(barcode);
+                        // Вибрация само при нов код
+                        if (navigator.vibrate) navigator.vibrate(100);
+                    }
+                });
+            } else {
+                statusText.innerText = "Търсене...";
+            }
+
+        } catch (e) {
+            console.error(e);
+        }
+
+        requestAnimationFrame(renderLoop);
+    }
+
+    // Помощна функция за заоблени правоъгълници
+    function drawRoundedRect(ctx, x, y, width, height, radius, color, lineWidth) {
+        ctx.beginPath();
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = color;
+        ctx.roundRect(x, y, width, height, radius);
+        ctx.stroke();
+        
+        // Лек ефект на сияние
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 15;
+        ctx.stroke();
+        ctx.shadowBlur = 0; // Ресет
+    }
+
+    function addToList(barcode) {
+        const code = barcode.rawValue;
+        const format = barcode.format;
+
+        collectedCodes.add(code);
+        countSpan.innerText = collectedCodes.size;
+
+        const item = document.createElement('div');
+        item.className = 'result-item';
+        item.innerHTML = `
+            <div>
+                <div class="d-flex align-items-center">
+                    <span class="code-font">${code}</span>
+                    <span class="format-badge">${format}</span>
+                </div>
+            </div>
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+        `;
+        
+        // Добавяме най-отгоре (най-новите първи)
+        listContainer.insertBefore(item, listContainer.firstChild);
+    }
+
+    window.clearData = function() {
+        collectedCodes.clear();
+        listContainer.innerHTML = '';
+        countSpan.innerText = '0';
+        statusText.innerText = "Изчистено";
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,310 @@
+﻿{% set status_classes = status_classes if status_classes is defined else {} %}
+{% if view_mode == 'table' %}
+  <!-- TABLE VIEW -->
+  <div class="modern-card p-0 overflow-hidden shadow-sm border">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" style="font-size: 0.95rem;">
+          <thead class="bg-light">
+            <tr>
+              <th class="ps-4 text-muted small text-uppercase py-3">СН / ID</th>
+              <th class="text-muted small text-uppercase py-3">Клиент</th>
+              <th class="text-muted small text-uppercase py-3">Склад / Тип</th>
+              <th class="text-muted small text-uppercase py-3">Статус</th>
+              <th class="text-muted small text-uppercase py-3">Продукти</th>
+              <th class="text-muted small text-uppercase py-3">Обн.</th>
+              <th class="text-end pe-4 text-muted small text-uppercase py-3">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in orders %}
+              <tr class="cursor-pointer" onclick="window.location='{{ url_for('orders.stock_order_prepare', order_id=order.id) }}'">
+                <td class="ps-4 fw-bold font-monospace text-dark">
+                    {{ order.external_id or order.id }}
+                </td>
+                <td>
+                    <div class="fw-bold text-dark text-truncate" style="max-width: 200px;">{{ order.client_name }}</div>
+                    <div class="text-muted small" style="font-size: 0.75rem;">{{ order.updated_at.strftime('%d.%m %H:%M') }}</div>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="text-dark fw-medium">{{ order.warehouse.name if order.warehouse else '—' }}</span>
+                        <span class="text-muted mx-1">|</span>
+                        <span class="badge bg-white text-secondary border">{{ type_labels.get(order.type, order.type) }}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge rounded-pill px-2 border text-uppercase" 
+                          style="font-size: 0.65rem; background-color: {% if order.status == 'ready_for_handover' %}#dcfce7{% else %}#f1f5f9{% endif %}; color: {% if order.status == 'ready_for_handover' %}#166534{% else %}#64748b{% endif %}; border-color: {% if order.status == 'ready_for_handover' %}#bbf7d0{% else %}#e2e8f0{% endif %} !important;">
+                        {{ status_labels.get(order.status, order.status) }}
+                    </span>
+                </td>
+                <td>
+                    <span class="text-dark fw-bold">{{ order.items|length }}</span> <span class="text-muted small">бр.</span>
+                </td>
+                <td>
+                    <span class="text-muted small">{{ order.updated_at.strftime('%d.%m') }}</span>
+                </td>
+                <td class="text-end pe-4">
+                    <div class="btn btn-sm btn-light border rounded-circle" onclick="event.stopPropagation();" data-bs-toggle="modal" data-bs-target="#assignModal-{{ order.id }}" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-people-fill text-muted"></i>
+                    </div>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="7" class="text-center py-5 text-muted">Няма налични поръчки.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+    </div>
+  </div>
+{% else %}
+  <!-- CARDS VIEW -->
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    {% for order in orders %}
+      <div class="col">
+        <div class="modern-card h-100 bg-white border rounded-4 shadow-sm position-relative overflow-hidden d-flex flex-column">
+          <!-- Header -->
+          <div class="d-flex justify-content-between align-items-center px-3 pt-3 pb-2">
+             <div class="d-flex align-items-center gap-2">
+                 {% if order.type == 'A' %}
+                    <i class="bi bi-box-arrow-in-down text-success fs-5"></i>
+                 {% else %}
+                    <i class="bi bi-box-arrow-up-right text-warning fs-5"></i>
+                 {% endif %}
+                 <span class="fw-bold text-dark font-monospace" style="font-size: 0.95rem;">{{ order.external_id or order.id }}</span>
+             </div>
+             <span class="badge rounded-pill bg-light text-secondary border fw-normal px-3 py-1" style="font-size: 0.75rem;">
+                 {{ order.updated_at.strftime('%d.%m') }} <span class="opacity-25 mx-1">|</span> {{ order.updated_at.strftime('%H:%M') }}
+             </span>
+          </div>
+
+          <!-- Body -->
+          <div class="px-3 pb-3 flex-grow-1 d-flex flex-column">
+            <h5 class="fw-bold text-dark mb-3 mt-1 text-truncate" title="{{ order.client_name }}" style="font-size: 1.1rem;">
+                {{ order.client_name }}
+            </h5>
+            
+            <div class="d-flex align-items-center justify-content-between p-2 rounded-3 mb-3" style="background-color: #f8fafc; border: 1px solid #f1f5f9;">
+                <div class="d-flex align-items-center gap-2 px-2">
+                    <i class="bi bi-building-fill text-secondary opacity-75"></i>
+                    <div>
+                        <div class="fw-bold text-dark small text-truncate" style="max-width: 110px;">{{ order.warehouse.name if order.warehouse else '—' }}</div>
+                        <div class="text-muted small">Склад</div>
+                    </div>
+                </div>
+                <div style="width: 1px; height: 24px; background: #e2e8f0;"></div>
+                <div class="px-2 text-end">
+                     <span class="fw-bold text-secondary small">Тип {{ type_labels.get(order.type, order.type) }}</span>
+                </div>
+            </div>
+
+            <!-- Assignees -->
+            <div class="d-flex align-items-center gap-2 text-muted small mb-3 ps-1" style="min-height: 26px;">
+                {% if order.assignments %}
+                    <i class="bi bi-people-fill text-secondary opacity-50"></i>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for assignment in order.assignments %}
+                           <span class="badge bg-white border text-secondary fw-normal rounded-2 py-1 px-2">
+                               {{ assignment.user.full_name.split()[0] }}
+                           </span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-muted fst-italic opacity-75 d-flex align-items-center gap-2">
+                        <i class="bi bi-person-dash"></i> Няма назначен екип.
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Stats -->
+            <div class="d-flex gap-3 mb-3">
+                <div class="flex-fill bg-white border rounded-3 p-2 text-center d-flex flex-column justify-content-center" style="height: 70px;">
+                    <div class="text-xs text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Продукти</div>
+                    <div class="fw-bold text-dark fs-4 lh-1 mt-1">{{ order.items|length }}</div>
+                </div>
+                
+                {% set s_text_color = 'text-dark' %}
+                {% if order.status == 'ready_for_handover' %}{% set s_text_color = 'text-success' %}{% endif %}
+                
+                <div class="flex-fill bg-white border rounded-3 p-2 text-center d-flex flex-column justify-content-center" style="height: 70px;">
+                    <div class="text-xs text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Статус</div>
+                    <div class="fw-bold {{ s_text_color }} text-uppercase lh-sm mt-1" style="font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px;">
+                        {{ status_labels.get(order.status, order.status) }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="mt-auto d-flex gap-2">
+                {% if current_user and current_user.can_assign_orders %}
+                <button class="btn btn-light border fw-bold text-muted px-3" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#assignModal-{{ order.id }}" 
+                        title="Назначи екип">
+                    <i class="bi bi-person-plus-fill"></i> <span class="d-none d-sm-inline ms-1">Назначи</span>
+                </button>
+                {% endif %}
+
+                <a href="{{ url_for('orders.stock_order_prepare', order_id=order.id) }}" class="btn-brand-new flex-grow-1 text-center text-decoration-none d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm rounded-3">
+                    {% if order.status == 'ready_for_handover' %}
+                        <i class="bi bi-clipboard-check"></i> ПРЕДАЙ
+                    {% else %}
+                        <i class="bi bi-qr-code-scan"></i> СКАНИРАЙ
+                    {% endif %}
+                </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="col-12">
+        <div class="text-center py-5 border border-2 border-dashed rounded-4 bg-white">
+            <i class="bi bi-inbox fs-1 text-muted opacity-25"></i>
+            <h5 class="mt-3 text-muted fw-normal">Няма налични поръчки за показване.</h5>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- MODALS SECTION (MOVED TO END) -->
+{% for order in orders %}
+    {% if current_user and current_user.can_assign_orders %}
+      <div class="modal fade js-modal-move" id="assignModal-{{ order.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content rounded-4 border-0 shadow-lg">
+            <form method="post" action="{{ url_for('orders.stock_order_assign', order_id=order.id) }}" class="d-flex flex-column h-100">
+              
+              <div class="modal-header border-bottom-0 pb-0 pt-4 px-4">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark">Назначаване за {{ order.external_id }}</h5>
+                    <p class="text-muted small mb-0">Изберете до двама служители за всяка секция.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+
+              <div class="modal-body px-4 py-3">
+                {% for section in order.service_point_sections %}
+                  {% set sp = section.service_point %}
+                  {% if sp %}
+                    {% set assigned_ids = order.assignments | selectattr('service_point_id', 'equalto', sp.id) | map(attribute='user_id') | list %}
+                    
+                    <div class="mb-4">
+                      <div class="d-flex align-items-center gap-2 mb-2">
+                          <span class="badge bg-light text-dark border rounded-pill"><i class="bi bi-shop me-1"></i> {{ sp.name }}</span>
+                      </div>
+                      
+                      {% set candidates = service_point_candidates.get(sp.id, []) %}
+                      {% if candidates %}
+                        <div class="d-flex flex-column gap-2">
+                          {% for user in candidates %}
+                            <label class="position-relative user-select-label">
+                              <!-- Hidden Checkbox -->
+                              <input type="checkbox" name="service_point_{{ sp.id }}" value="{{ user.id }}" 
+                                     class="user-select-checkbox" 
+                                     {% if user.id in assigned_ids %}checked{% endif %}>
+                              
+                              <!-- The Visual Card -->
+                              <div class="user-select-card">
+                                  <div class="d-flex align-items-center gap-3">
+                                      <div class="user-avatar-placeholder">
+                                          {{ user.full_name[:1] }}
+                                      </div>
+                                      <div>
+                                          <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ user.full_name }}</div>
+                                          {% if assignment_counts.get(user.id, 0) > 0 %}
+                                              <div class="text-muted small" style="font-size: 0.75rem;">
+                                                  Активни СН: <strong>{{ assignment_counts.get(user.id, 0) }}</strong>
+                                              </div>
+                                          {% else %}
+                                              <div class="text-success small" style="font-size: 0.75rem;">На разположение</div>
+                                          {% endif %}
+                                      </div>
+                                  </div>
+                                  <div class="check-indicator">
+                                      <i class="bi bi-check-circle-fill"></i>
+                                  </div>
+                              </div>
+                            </label>
+                          {% endfor %}
+                        </div>
+                      {% else %}
+                        <div class="alert alert-light border text-muted small text-center py-3">
+                            <i class="bi bi-exclamation-circle d-block fs-4 mb-2 opacity-50"></i>
+                            Няма налични служители за тази точка.
+                        </div>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              <div class="modal-footer border-top-0 px-4 pb-4 pt-0">
+                <button type="button" class="btn btn-light text-muted fw-bold flex-grow-1" data-bs-dismiss="modal">Отказ</button>
+                <button type="submit" class="btn btn-brand-new text-white px-4 rounded-3 shadow-sm flex-grow-1">Запази</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+{% endfor %}
+
+<!-- SCRIPT FIX FOR MODALS -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // This moves the modals to the body tag, escaping the fade-in container's stacking context
+        var modals = document.querySelectorAll('.js-modal-move');
+        modals.forEach(function(modal) {
+            document.body.appendChild(modal);
+        });
+    });
+</script>
+
+<style>
+    /* Button Style */
+    .btn-brand-new {
+        background: linear-gradient(135deg, #a6cf39 0%, #7ca323 100%);
+        border: none; color: white !important; transition: all 0.2s;
+    }
+    .btn-brand-new:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(166, 207, 57, 0.4);
+        color: white !important;
+    }
+    .cursor-pointer { cursor: pointer; }
+
+    /* User Selection Styling */
+    .user-select-label { width: 100%; cursor: pointer; margin: 0; }
+    .user-select-checkbox { position: absolute; opacity: 0; width: 0; height: 0; }
+    
+    .user-select-card {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 14px;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        transition: all 0.2s ease;
+    }
+    
+    .user-select-card:hover { background-color: #f8fafc; border-color: #cbd5e1; }
+    
+    .user-avatar-placeholder {
+        width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9;
+        display: flex; align-items: center; justify-content: center;
+        color: #64748b; font-weight: 700; font-size: 0.85rem;
+    }
+
+    .check-indicator {
+        font-size: 1.2rem; color: #e2e8f0; transition: color 0.2s;
+    }
+
+    /* Checked State */
+    .user-select-checkbox:checked + .user-select-card {
+        background-color: #f0fdf4; border-color: #a6cf39; box-shadow: 0 2px 5px rgba(166, 207, 57, 0.1);
+    }
+    .user-select-checkbox:checked + .user-select-card .user-avatar-placeholder {
+        background-color: #dcfce7; color: #166534;
+    }
+    .user-select-checkbox:checked + .user-select-card .check-indicator {
+        color: #a6cf39;
+    }
+</style>
