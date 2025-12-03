@@ -1765,3 +1765,193 @@ body {
         font-weight: normal;
         vertical-align: super;
     }
+/* =========================================
+   GEMINI UPGRADE - HOME PAGE STYLES
+   ========================================= */
+
+/* 1. НОВ HERO КОМАНДЕН ЦЕНТЪР */
+.command-center-hero {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 24px;
+    padding: 2.5rem;
+    border: 1px solid #ffffff;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+}
+
+.command-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--brand-dark);
+}
+
+.command-subtitle {
+    font-size: 1.1rem;
+    color: var(--brand-gray);
+    max-width: 550px;
+}
+
+.badge-online {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    padding: 6px 14px;
+    border-radius: 50rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--brand-dark);
+    border: 1px solid #e2e8f0;
+}
+
+.badge-online .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #22c55e; /* Green */
+    border-radius: 50%;
+    animation: pulse-green 2s infinite;
+}
+
+/* Hero Декорации */
+.hero-orb-1 {
+    position: absolute; width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(166, 207, 57, 0.15) 0%, rgba(166, 207, 57, 0) 70%);
+    top: -100px; right: -100px; z-index: 1;
+    animation: float 8s ease-in-out infinite alternate;
+}
+.hero-orb-2 {
+    position: absolute; width: 250px; height: 250px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0) 70%);
+    bottom: -80px; left: -80px; z-index: 1;
+    animation: float 10s ease-in-out infinite alternate;
+    animation-delay: 2s;
+}
+
+/* KPI Widget в Hero */
+.kpi-widget {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 16px;
+    border: 1px solid #fff;
+    padding: 0.75rem;
+    display: flex;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+.kpi-item {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+}
+.kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--brand-dark);
+    line-height: 1;
+}
+.kpi-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: var(--brand-gray);
+    font-weight: 600;
+    margin-top: 4px;
+}
+.kpi-separator {
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, #e2e8f0, transparent);
+}
+
+/* Бутони в Hero */
+.btn-hero-action {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+}
+.btn-hero-action:hover {
+    transform: translateY(-2px);
+    border-color: #cbd5e1;
+    color: var(--brand-dark);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.06);
+}
+.btn-hero-action i { font-size: 1rem; }
+
+
+/* 2. ПОДОБРЕНИ МОДУЛИ */
+.module-header {
+    font-weight: 700;
+    color: var(--brand-gray);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 5px;
+}
+
+.module-card-v2 {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.25rem;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-decoration: none;
+}
+.module-card-v2:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08);
+    border-color: #e2e8f0;
+}
+
+.module-icon-v2 {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.module-card-v2 h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 2px;
+}
+.module-card-v2 span {
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.3;
+}
+
+.card-arrow {
+    margin-left: auto;
+    font-size: 1.5rem;
+    color: #cbd5e1;
+    transition: all 0.2s;
+}
+.module-card-v2:hover .card-arrow {
+    transform: translateX(4px);
+    color: var(--brand-green);
+}
+
+/* Старите стилове, които вече не ни трябват (презаписваме ги) */
+.sec-label { display: none; }
+.hero-glass { display: none; } /* Скриваме стария hero */
+.module-card { display: none; } /* Скриваме старите карти */
