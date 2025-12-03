@@ -59,6 +59,13 @@
                     <i class="bi bi-mortarboard"></i> Academy
                 </a>
             </li>
+            {% if current_user.is_admin %}
+            <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if request.endpoint and request.endpoint.startswith('admin.') }}" href="{{ url_for('admin.panel') }}">
+                    <i class="bi bi-gear"></i> Админ
+                </a>
+            </li>
+            {% endif %}
             <li class="nav-item">
                 <a class="nav-link-modern {{ 'active' if 'simple_list' in request.endpoint }}" href="{{ url_for('logistics.simple_list_index') }}">
                     <i class="bi bi-list-check"></i> Списъци
@@ -288,6 +295,12 @@
             <i class="bi bi-mortarboard{{ '-fill' if request.endpoint and request.endpoint.startswith('academy.') }}"></i>
             <span>Academy</span>
         </a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin.panel') }}" class="nav-item-mobile {{ 'active' if request.endpoint and request.endpoint.startswith('admin.') }}">
+            <i class="bi bi-gear{{ '-fill' if request.endpoint and request.endpoint.startswith('admin.') }}"></i>
+            <span>Админ</span>
+        </a>
+        {% endif %}
         
         <!-- Място за бутона -->
         <div class="nav-spacer"></div>
