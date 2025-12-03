@@ -14,6 +14,7 @@ from app.blueprints.main import main_bp
 from app.blueprints.orders import orders_bp
 from app.blueprints.products import products_bp
 from app.blueprints.scanning import scanning_bp
+from app.blueprints.academy import academy_bp
 
 
 def create_app():
@@ -31,6 +32,7 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
     app.register_blueprint(admin_bp)
+    app.register_blueprint(academy_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(logistics_bp)
     app.register_blueprint(orders_bp)

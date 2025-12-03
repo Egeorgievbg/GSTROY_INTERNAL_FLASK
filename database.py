@@ -9,6 +9,7 @@ from models import (
     Base,
     Brand,
     Category,
+    ContentItem,
     Product,
     ProductList,
     ServicePoint,
@@ -17,6 +18,7 @@ from models import (
     StockOrderItem,
     TransferDocument,
     User,
+    UserContentProgress,
     Warehouse,
 )
 

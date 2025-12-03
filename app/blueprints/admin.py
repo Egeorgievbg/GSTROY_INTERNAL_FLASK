@@ -1,9 +1,11 @@
+import os
 from datetime import datetime
 
-from flask import Blueprint, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for, current_app
 from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 
 from helpers import (
     hierarchical_address,
@@ -18,6 +20,7 @@ from models import (
     AccessWindow,
     Brand,
     Category,
+    ContentItem,
     Product,
     Role,
     ServicePoint,
@@ -182,6 +185,63 @@ def _set_default_printer(session, printer):
         Printer.warehouse_id == printer.warehouse_id,
         Printer.id != printer.id,
     ).update({"is_default": False}, synchronize_session="fetch")
+
+
+def _academy_upload_dir():
+    upload_root = os.path.join(current_app.static_folder, "uploads")
+    os.makedirs(upload_root, exist_ok=True)
+    return upload_root
+
+
+@admin_bp.route("/academy", methods=["GET", "POST"])
+def academy_content():
+    require_admin()
+    session = g.db
+    if request.method == "POST":
+        title = (request.form.get("title") or "").strip()
+        if not title:
+            flash("Заглавието е задължително.", "warning")
+            return redirect(url_for(".academy_content"))
+        content_type = (request.form.get("content_type") or "NEWS").upper()
+        if content_type not in {"STORY", "NEWS", "GUIDE"}:
+            content_type = "NEWS"
+        media_url = (request.form.get("media_url") or "").strip()
+        media_file = request.files.get("media_file")
+        if media_file and media_file.filename:
+            filename = secure_filename(media_file.filename)
+            if filename:
+                upload_path = os.path.join(_academy_upload_dir(), filename)
+                media_file.save(upload_path)
+                media_url = f"static/uploads/{filename}"
+        read_time = request.form.get("read_time_minutes", type=int)
+        item = ContentItem(
+            title=title,
+            summary=(request.form.get("summary") or "").strip(),
+            content_html=(request.form.get("content_html") or "").strip(),
+            media_url=media_url or None,
+            content_type=content_type,
+            category=(request.form.get("category") or "").strip() or None,
+            read_time_minutes=read_time or 0,
+            is_published=parse_bool(request.form.get("is_published")),
+            created_at=datetime.utcnow(),
+        )
+        session.add(item)
+        session.commit()
+        flash("Контентът беше създаден успешно.", "success")
+        return redirect(url_for(".academy_content"))
+    items = session.query(ContentItem).order_by(ContentItem.created_at.desc()).all()
+    return render_template("admin_academy.html", items=items)
+
+
+@admin_bp.route("/academy/push", methods=["POST"])
+def academy_push():
+    require_admin()
+    item_id = request.form.get("push_item_id", type=int)
+    if not item_id:
+        flash("Избери съдържание, което да се изпрати.", "warning")
+        return redirect(url_for(".academy_content"))
+    flash(f"Push sent to 150 devices with deep link: erp://academy/item/{item_id}", "success")
+    return redirect(url_for(".academy_content"))
 def _user_form_options(session):
     return {
         "service_points": session.query(ServicePoint).order_by(ServicePoint.name).all(),

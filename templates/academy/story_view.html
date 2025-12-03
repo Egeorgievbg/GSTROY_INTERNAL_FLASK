@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="story-shell">
+  <div class="story-top-bar">
+    <div class="progress story-progress">
+      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%;"></div>
+    </div>
+    <a href="{{ url_for('academy.dashboard') }}" class="close-story"><i class="bi bi-x-lg"></i></a>
+  </div>
+  <div class="story-content">
+    {% if item.media_url %}
+      {% if item.media_url.startswith('http') %}
+        <div class="ratio ratio-9x16">
+          <iframe src="{{ item.media_url }}" title="{{ item.title }}" allowfullscreen></iframe>
+        </div>
+      {% else %}
+        <img src="{{ url_for('static', filename=item.media_url.strip('/') ) }}" alt="{{ item.title }}">
+      {% endif %}
+    {% endif %}
+    <div class="text-center mt-3">
+      <h3 class="text-white fw-bold">{{ item.title }}</h3>
+      <p class="text-white-50">{{ item.summary }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

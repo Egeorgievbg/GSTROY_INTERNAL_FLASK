@@ -486,6 +486,7 @@ class User(UserMixin, Base):
     subordinates = relationship("User", back_populates="manager")
     roles = relationship("Role", secondary=user_roles, back_populates="users")
     access_windows = relationship("AccessWindow", secondary=access_window_users, back_populates="users")
+    content_progress = relationship("UserContentProgress", back_populates="user", cascade="all, delete-orphan")
 
 
 class StockOrder(Base):
@@ -586,3 +587,34 @@ class PPPDocument(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     stock_order = relationship("StockOrder", back_populates="ppp_document")
+
+
+class ContentItem(Base):
+    __tablename__ = "content_items"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), nullable=False)
+    summary = Column(String(512))
+    content_html = Column(Text)
+    media_url = Column(String(255))
+    content_type = Column(String(32), nullable=False, default="NEWS")
+    category = Column(String(64))
+    read_time_minutes = Column(Integer, default=0)
+    is_published = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    progresses = relationship("UserContentProgress", back_populates="content_item", cascade="all, delete-orphan")
+
+
+class UserContentProgress(Base):
+    __tablename__ = "user_content_progress"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content_item_id = Column(Integer, ForeignKey("content_items.id"), nullable=False)
+    is_read = Column(Boolean, default=False)
+    reaction = Column(String(32))
+    read_at = Column(DateTime)
+
+    user = relationship("User", back_populates="content_progress")
+    content_item = relationship("ContentItem", back_populates="progresses")

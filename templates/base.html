@@ -55,6 +55,11 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link-modern {{ 'active' if request.endpoint and request.endpoint.startswith('academy.') }}" href="{{ url_for('academy.dashboard') }}">
+                    <i class="bi bi-mortarboard"></i> Academy
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link-modern {{ 'active' if 'simple_list' in request.endpoint }}" href="{{ url_for('logistics.simple_list_index') }}">
                     <i class="bi bi-list-check"></i> Списъци
                 </a>
@@ -278,6 +283,10 @@
         <a href="{{ url_for('orders.stock_orders_assigned') }}" class="nav-item-mobile {{ 'active' if 'stock_orders_assigned' in request.endpoint }}">
             <i class="bi bi-check-circle{{ '-fill' if 'stock_orders_assigned' in request.endpoint }}"></i>
             <span>Задачи</span>
+        </a>
+        <a href="{{ url_for('academy.dashboard') }}" class="nav-item-mobile {{ 'active' if request.endpoint and request.endpoint.startswith('academy.') }}">
+            <i class="bi bi-mortarboard{{ '-fill' if request.endpoint and request.endpoint.startswith('academy.') }}"></i>
+            <span>Academy</span>
         </a>
         
         <!-- Място за бутона -->

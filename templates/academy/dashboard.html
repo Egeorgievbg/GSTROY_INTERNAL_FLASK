@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="academy-feed">
+  <section class="stories-section mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h2 class="fs-5 fw-semibold mb-0">Stories</h2>
+      <small class="text-muted">{{ stories|length }} активни</small>
+    </div>
+    <div class="stories-wrapper">
+      {% if stories %}
+        {% for story in stories %}
+          {% set progress = progress_map.get(story.id) %}
+          <div
+            class="story-circle {% if progress and progress.is_read %}read{% endif %}"
+            data-bs-toggle="tooltip"
+            title="{{ story.title }}"
+            onclick="location.href='{{ url_for('academy.story_view', item_id=story.id) }}'"
+          >
+            <img src="{{ story.media_url or url_for('static', filename='images/no_image.png') }}" alt="{{ story.title }}">
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-muted">Няма активни stories.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="progress-section mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <strong>Научил си {{ monthly_reads }} нови неща този месец!</strong>
+        <p class="mb-0 text-muted small">Общо маркирани като прочетени: {{ read_count }}</p>
+      </div>
+      <span class="badge bg-success">{{ monthly_reads }}/8</span>
+    </div>
+    <div class="progress" style="height: 6px;">
+      {% set progress_width = (monthly_reads * 12.5) if monthly_reads else 0 %}
+      <div
+        class="progress-bar bg-success"
+        role="progressbar"
+        style="width: {{ progress_width if progress_width <= 100 else 100 }}%;"
+        aria-valuenow="{{ monthly_reads }}"
+        aria-valuemin="0"
+        aria-valuemax="8"
+      ></div>
+    </div>
+  </section>
+
+  <section class="feed-section">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="fs-5 fw-semibold mb-0">News & Guides</h2>
+      <a href="{{ url_for('academy.dashboard') }}" class="text-decoration-none small text-muted">Обнови</a>
+    </div>
+    <div class="row g-3">
+      {% for item in feed %}
+        <div class="col-12">
+          <article class="card academy-feed-card">
+            <div class="row g-0">
+              <div class="col-md-4">
+                <div class="ratio ratio-16x9">
+                  {% if item.media_url %}
+                    {% if item.media_url.startswith('http') %}
+                      <iframe src="{{ item.media_url }}" title="{{ item.title }}" allowfullscreen></iframe>
+                    {% else %}
+                      <img src="{{ url_for('static', filename=item.media_url.strip('/') ) }}" class="card-img rounded-3" alt="">
+                    {% endif %}
+                  {% else %}
+                    <img src="{{ url_for('static', filename='images/no_image.png') }}" class="card-img rounded-3" alt="">
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-md-8">
+                <div class="card-body">
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-warning text-dark">NEW</span>
+                    {% if item.content_type == 'GUIDE' %}
+                      <span class="badge bg-info text-dark">Guide</span>
+                    {% elif item.content_type == 'NEWS' %}
+                      <span class="badge bg-secondary">News</span>
+                    {% endif %}
+                    <span class="badge bg-light text-muted">{{ item.read_time_minutes or 2 }} min read</span>
+                  </div>
+                  <h3 class="h5">
+                    <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="text-decoration-none text-dark">
+                      {{ item.title }}
+                    </a>
+                  </h3>
+                  <p class="card-text text-muted mb-3">{{ item.summary }}</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">{{ item.category or 'Общ' }}</small>
+                    <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="btn btn-sm btn-outline-dark">
+                      Отвори
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      {% else %}
+        <div class="col-12">
+          <div class="alert alert-secondary mb-0">Няма публикувани статии към момента.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}
