@@ -15,45 +15,43 @@
             </div>
             <h1 class="h3 fw-bold text-dark mb-0">Подготовка на поръчка</h1>
         </div>
-        
         <div class="d-flex gap-2">
-             <div class="btn-group">
-                 <button type="button" class="btn btn-white border shadow-sm text-muted" data-json-endpoint="{{ url_for('orders.stock_order_erp_input', order_id=order.id) }}" data-json-title="ERP Input">
+            <div class="btn-group">
+                <button type="button" class="btn btn-white border shadow-sm text-muted" data-json-endpoint="{{ url_for('orders.stock_order_erp_input', order_id=order.id) }}" data-json-title="ERP Input">
                     JSON IN
-                 </button>
-                 <button type="button" class="btn btn-white border shadow-sm text-muted" data-json-endpoint="{{ url_for('orders.stock_order_erp_output', order_id=order.id) }}" data-json-title="ERP Output">
+                </button>
+                <button type="button" class="btn btn-white border shadow-sm text-muted" data-json-endpoint="{{ url_for('orders.stock_order_erp_output', order_id=order.id) }}" data-json-title="ERP Output">
                     JSON OUT
-                 </button>
-             </div>
-             <a class="btn btn-outline-dark shadow-sm" href="{{ url_for('orders.stock_order_handover', order_id=order.id) }}">
+                </button>
+            </div>
+            <a class="btn btn-outline-dark shadow-sm" href="{{ url_for('orders.stock_order_handover', order_id=order.id) }}">
                 <i class="bi bi-box-seam me-1"></i> Предаване
-             </a>
-             <a class="btn btn-outline-secondary border-0" href="{{ url_for('orders.stock_orders_dashboard') }}">
+            </a>
+            <a class="btn btn-outline-secondary border-0" href="{{ url_for('orders.stock_orders_dashboard') }}">
                 <i class="bi bi-x-lg"></i>
-             </a>
+            </a>
         </div>
     </div>
 
-    <!-- Info Grid -->
     <div class="row g-3">
         <div class="col-md-4">
             <div class="info-panel h-100">
-                <div class="info-label"><i class="bi bi-person me-1"></i>Клиент</div>
+                <div class="info-label"><i class="bi bi-person me-1"></i> Клиент</div>
                 <div class="info-content text-truncate">{{ order.client_name }}</div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="info-panel h-100">
-                <div class="info-label"><i class="bi bi-calendar-event me-1"></i>Доставка</div>
+                <div class="info-label"><i class="bi bi-calendar-event me-1"></i> Доставка</div>
                 <div class="info-content">
-                    {{ order.delivery_date or '—' }} <span class="text-muted fw-normal">{{ order.delivery_time.strftime('%H:%M') if order.delivery_time else '' }}</span>
+                    {{ order.delivery_date or '?' }} <span class="text-muted fw-normal">{{ order.delivery_time.strftime('%H:%M') if order.delivery_time else '' }}</span>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="info-panel h-100">
-                <div class="info-label"><i class="bi bi-sticky me-1"></i>Бележка</div>
-                <div class="info-content fst-italic">{{ order.note or 'Няма бележка' }}</div>
+                <div class="info-label"><i class="bi bi-sticky me-1"></i> Бележка</div>
+                <div class="info-content fst-italic">{{ order.note or '?' }}</div>
             </div>
         </div>
     </div>
@@ -63,24 +61,23 @@
 <div class="row g-3 mb-4 fade-in" style="animation-delay: 0.1s;">
     <div class="col-md-4">
         <div class="prep-stat-card">
-            <div class="stat-title">Общо Редове</div>
+            <div class="stat-title">Артикули</div>
             <div class="stat-value text-dark" id="summaryTotal">{{ stats['items'] }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="prep-stat-card">
-            <div class="stat-title">Готови</div>
+            <div class="stat-title">Подготвени</div>
             <div class="stat-value text-success" id="summaryCompleted">{{ stats['completed'] }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="prep-stat-card">
-            <div class="stat-title">Оставащи Бройки</div>
+            <div class="stat-title">Оставащи</div>
             <div class="stat-value text-warning" id="summaryRemaining">{{ "%.2f"|format(stats['remaining']) }}</div>
         </div>
     </div>
 </div>
-
 <!-- 3. SERVICE SECTIONS (SCANNING LOOPS) -->
 {% for section in sections %}
 <div class="scanner-zone fade-in" style="animation-delay: 0.2s;">
@@ -126,11 +123,12 @@
             <table class="table prep-table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th style="width: 50px;"></th>
+                    <th style="width: 50px;"></th>
                         <th>Артикул</th>
                         <th>Инфо</th>
                         <th class="text-end">Поръчано</th>
                         <th class="text-end">Готово</th>
+                        <th class="text-end">Предадено</th>
                         <th class="text-end">Остава</th>
                         <th class="text-end" style="width: 100px;"></th>
                     </tr>
@@ -138,9 +136,10 @@
                 <tbody>
                 {% for item in section["items"] %}
                     {% set requires_manual = (not item.product) or (not item.product.inventory_with_barcode) or (not item.product.barcode) %}
-                    <tr data-item-id="{{ item.id }}"
+                        <tr data-item-id="{{ item.id }}"
                         data-ordered="{{ item.quantity_ordered }}"
                         data-prepared="{{ item.quantity_prepared }}"
+                        data-delivered="{{ item.quantity_delivered }}"
                         data-remaining="{{ item.remaining_to_prepare }}"
                         class="{{ 'row-complete' if item.remaining_to_prepare <= 0 else '' }}">
                         
@@ -173,6 +172,13 @@
                         
                         <td class="text-end fw-bold text-muted">{{ item.quantity_ordered }}</td>
                         <td class="text-end fw-bold text-success js-prepared">{{ item.quantity_prepared }}</td>
+                        <td class="text-end text-muted js-delivered">
+                            {% if item.quantity_delivered > 0 %}
+                                {{ item.quantity_delivered }}
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
                         <td class="text-end fw-bold text-danger js-remaining" style="font-size: 1.1rem;">{{ item.remaining_to_prepare }}</td>
                         
                         <td class="text-end">
@@ -250,6 +256,16 @@
       if (!row) return;
       
       row.querySelector('.js-prepared').textContent = item.prepared;
+      const deliveredCell = row.querySelector('.js-delivered');
+      if (deliveredCell) {
+        if (item.delivered && item.delivered > 0) {
+          deliveredCell.textContent = item.delivered;
+          deliveredCell.classList.remove('text-muted');
+        } else {
+          deliveredCell.textContent = '—';
+          deliveredCell.classList.add('text-muted');
+        }
+      }
       row.querySelector('.js-remaining').textContent = item.remaining;
       row.querySelector('.js-status').textContent = item.status;
       
@@ -266,6 +282,7 @@
       if (manualBtn) manualBtn.dataset.remaining = item.remaining;
       
       row.dataset.prepared = item.prepared;
+      row.dataset.delivered = item.delivered || 0;
       row.dataset.remaining = item.remaining;
       refreshSummary();
     }
@@ -377,17 +394,29 @@
     // Manual Button Logic
     document.querySelectorAll('.manual-btn').forEach(function (button) {
       button.addEventListener('click', function () {
-        const remaining = Number(button.dataset.remaining || '0');
-        const defaultQty = remaining > 0 ? remaining : 1;
-        const qty = prompt('Ръчно въвеждане на количество:', defaultQty);
-        if (!qty) return;
-        
+        const row = button.closest('tr');
+        const ordered = Number(row?.dataset?.ordered || '0');
+        const prepared = Number(row?.dataset?.prepared || '0');
+        const promptDefault = ordered ? prepared.toFixed(2) : '0';
+        const message = `Въведи нови готови бройки (0 - ${ordered.toFixed(2)}). Имаш ${prepared.toFixed(2)} от ${ordered.toFixed(2)}.`;
+        const userInput = prompt(message, promptDefault);
+        if (userInput === null) return;
+        const target = parseFloat(userInput);
+        if (!Number.isFinite(target)) {
+          alert('Въведи валидно число.');
+          return;
+        }
+        if (target < 0 || target > ordered) {
+          alert('Стойността трябва да е между 0 и поръчаното количество.');
+          return;
+        }
+
         const payload = {
           service_point_id: button.dataset.servicePoint,
           item_id: button.dataset.itemId,
-          qty: qty,
+          target_prepared: target,
         };
-        
+
         fetch(manualUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -396,17 +425,17 @@
           .then(r => r.json().then(data => ({ ok: r.ok, data })))
           .then(result => {
             if (!result.ok || !result.data.success) {
-              alert(result.data.error || 'Грешка.');
-              logEvent(`Ръчно (Грешка): ${result.data.error}`, 'danger');
+              alert(result.data.error || 'Грешка при актуализацията.');
+              logEvent(`Актуализация: ${result.data.error}`, 'danger');
               return;
             }
             updateRow(result.data.item);
             document.getElementById('orderStatusLabel').textContent = result.data.order_status_label;
-            logEvent(`Ръчно: Ред #${result.data.item.item_id} × ${qty}`, 'primary');
+            logEvent(`Редактирани готови бройки за #${result.data.item.item_id}: ${result.data.target}`, 'primary');
           })
           .catch(() => {
-            alert('Грешка при връзка.');
-            logEvent('Ръчно: Network Error', 'danger');
+            alert('Грешка в мрежата при запис.');
+            logEvent('Актуализация: Network Error', 'danger');
           });
       });
     });

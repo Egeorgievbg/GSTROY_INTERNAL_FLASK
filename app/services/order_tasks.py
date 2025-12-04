@@ -47,15 +47,20 @@ def update_stock_order_status(order: StockOrder):
         order.status = "new"
         order.updated_at = datetime.utcnow()
         return order.status
-    all_delivered = all(item.quantity_delivered >= item.quantity_ordered > 0 for item in items)
+    
+    # Коригирана логика без проверката '> 0'
+    all_delivered = all(item.quantity_delivered >= item.quantity_ordered for item in items)
     any_delivered = any(item.quantity_delivered > 0 for item in items)
+    
     if all_delivered:
         new_status = "delivered"
     elif any_delivered:
         new_status = "partially_delivered"
     else:
-        all_prepared = all(item.quantity_prepared >= item.quantity_ordered > 0 for item in items)
+        # Коригирана логика без проверката '> 0'
+        all_prepared = all(item.quantity_prepared >= item.quantity_ordered for item in items)
         any_prepared = any(item.quantity_prepared > 0 for item in items)
+        
         if all_prepared:
             new_status = "ready_for_handover"
         elif any_prepared:
@@ -64,6 +69,7 @@ def update_stock_order_status(order: StockOrder):
             new_status = "assigned"
         else:
             new_status = "new"
+            
     order.status = new_status
     order.updated_at = datetime.utcnow()
     return new_status

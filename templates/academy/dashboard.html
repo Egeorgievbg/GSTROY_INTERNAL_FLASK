@@ -4,121 +4,131 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
 {% endblock %}
 
+
 {% block content %}
-<div class="academy-feed">
-  <section class="stories-section mb-4">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <h2 class="fs-5 fw-semibold mb-0">Stories</h2>
-      <small class="text-muted">{{ stories|length }} активни</small>
-    </div>
-    <div class="stories-wrapper">
-      {% if stories %}
-        {% for story in stories %}
-          {% set progress = progress_map.get(story.id) %}
-          {% set media_src = story.media_url or '' %}
-          {% set is_external = media_src.startswith('http') %}
-          <div
-            class="story-circle {% if progress and progress.is_read %}read{% endif %}"
-            data-bs-toggle="tooltip"
-            title="{{ story.title }}"
-            onclick="location.href='{{ url_for('academy.story_view', item_id=story.id) }}'"
-          >
-            {% if media_src %}
-              {% if is_external %}
-                <img src="{{ media_src }}" alt="{{ story.title }}">
-              {% else %}
-                <img src="{{ url_for('static', filename=media_src) }}" alt="{{ story.title }}">
-              {% endif %}
-            {% else %}
-              <img src="{{ url_for('static', filename='images/no_image.png') }}" alt="{{ story.title }}">
-            {% endif %}
-          </div>
-        {% endfor %}
-      {% else %}
-        <div class="text-muted">Няма активни stories.</div>
-      {% endif %}
-    </div>
-  </section>
+<div class="academy-container fade-in">
 
-  <section class="progress-section mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <div>
-        <strong>Научил си {{ monthly_reads }} нови неща този месец!</strong>
-        <p class="mb-0 text-muted small">Общо маркирани като прочетени: {{ read_count }}</p>
-      </div>
-      <span class="badge bg-success">{{ monthly_reads }}/8</span>
-    </div>
-    <div class="progress" style="height: 6px;">
-      {% set progress_width = (monthly_reads * 12.5) if monthly_reads else 0 %}
-      <div
-        class="progress-bar bg-success"
-        role="progressbar"
-        style="width: {{ progress_width if progress_width <= 100 else 100 }}%;"
-        aria-valuenow="{{ monthly_reads }}"
-        aria-valuemin="0"
-        aria-valuemax="8"
-      ></div>
-    </div>
-  </section>
-
-  <section class="feed-section">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <h2 class="fs-5 fw-semibold mb-0">News & Guides</h2>
-      <a href="{{ url_for('academy.dashboard') }}" class="text-decoration-none small text-muted">Обнови</a>
-    </div>
-    <div class="row g-3">
-      {% for item in feed %}
-        <div class="col-12">
-          <article class="card academy-feed-card">
-            <div class="row g-0">
-              <div class="col-md-4">
-                <div class="ratio ratio-16x9">
-                  {% set media_src = item.media_url or '' %}
-                  {% if media_src %}
-                    {% if media_src.startswith('http') %}
-                      <iframe src="{{ media_src }}" title="{{ item.title }}" allowfullscreen></iframe>
+    <!-- 1. HERO СЕКЦИЯ (Обединява Stories и Прогрес) -->
+    <section class="academy-hero">
+        <div class="row align-items-center">
+            <!-- Stories -->
+            <div class="col-lg-7 col-xl-8 mb-4 mb-lg-0">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h1 class="academy-title">Academy</h1>
+                    <span class="badge-subtle">{{ stories|length }} активни Stories</span>
+                </div>
+                <div class="stories-container">
+                    {% if stories %}
+                        {% for story in stories %}
+                            {% set progress = progress_map.get(story.id) %}
+                            <a href="{{ url_for('academy.story_view', item_id=story.id) }}" class="story-item" data-bs-toggle="tooltip" title="{{ story.title }}">
+                                <div class="story-avatar {% if progress and progress.is_read %}read{% endif %}">
+                                    {# ТВОЯТА ЛОГИКА ЗА ИЗОБРАЖЕНИЯТА Е ТУК #}
+                                    {% set media_src = story.media_url or url_for('static', filename='images/placeholder.svg') %}
+                                    <img src="{{ media_src if media_src.startswith('http') else url_for('static', filename=media_src) }}" alt="{{ story.title }}">
+                                </div>
+                                <span class="story-title">{{ story.title | truncate(10) }}</span>
+                            </a>
+                        {% endfor %}
+                        <a href="#" class="story-item add-new">
+                            <div class="story-avatar">
+                                <i class="bi bi-plus-lg"></i>
+                            </div>
+                            <span class="story-title">Ново стори</span>
+                        </a>
                     {% else %}
-                      <img src="{{ url_for('static', filename=media_src) }}" class="card-img rounded-3" alt="">
+                        <p class="text-muted">Няма активни stories в момента.</p>
                     {% endif %}
-                  {% else %}
-                    <img src="{{ url_for('static', filename='images/no_image.png') }}" class="card-img rounded-3" alt="">
-                  {% endif %}
                 </div>
-              </div>
-              <div class="col-md-8">
-                <div class="card-body">
-                  <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="badge bg-warning text-dark">NEW</span>
-                    {% if item.content_type == 'GUIDE' %}
-                      <span class="badge bg-info text-dark">Guide</span>
-                    {% elif item.content_type == 'NEWS' %}
-                      <span class="badge bg-secondary">News</span>
-                    {% endif %}
-                    <span class="badge bg-light text-muted">{{ item.read_time_minutes or 2 }} min read</span>
-                  </div>
-                  <h3 class="h5">
-                    <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="text-decoration-none text-dark">
-                      {{ item.title }}
-                    </a>
-                  </h3>
-                  <p class="card-text text-muted mb-3">{{ item.summary }}</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted">{{ item.category or 'Общ' }}</small>
-                    <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="btn btn-sm btn-outline-dark">
-                      Отвори
-                    </a>
-                  </div>
-                </div>
-              </div>
             </div>
-          </article>
+
+            <!-- Прогрес -->
+            <div class="col-lg-5 col-xl-4">
+                <div class="progress-widget">
+                    <div class="widget-header">
+                        <div class="widget-icon"><i class="bi bi-star-fill"></i></div>
+                        <div class="widget-pills">
+                            <span class="pill-main">{{ monthly_reads }}/8</span>
+                            <span class="pill-sub">този месец</span>
+                        </div>
+                    </div>
+                    <div class="widget-body">
+                        <h5 class="widget-title">Страхотен напредък!</h5>
+                        <p class="widget-text">Прочетени материали: {{ read_count }}</p>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        {% set progress_width = (monthly_reads * 12.5) if monthly_reads else 0 %}
+                        <div class="progress-bar" role="progressbar" style="width: {{ progress_width if progress_width <= 100 else 100 }}%;" aria-valuenow="{{ monthly_reads }}" aria-valuemin="0" aria-valuemax="8"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-      {% else %}
-        <div class="col-12">
-          <div class="alert alert-secondary mb-0">Няма публикувани статии към момента.</div>
+    </section>
+
+    <!-- 2. СЕКЦИЯ С НОВИНИ И ГАЙДОВЕ -->
+    <section class="feed-section mt-4 pt-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="section-title">News & Guides</h2>
+            <a href="{{ url_for('academy.dashboard') }}" class="btn-subtle">
+                <i class="bi bi-arrow-clockwise"></i> Обнови
+            </a>
         </div>
-      {% endfor %}
-    </div>
-  </section>
+
+        <div class="row g-4">
+            {% for item in feed %}
+                <div class="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+                    <article class="article-card">
+                        <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="card-image-link">
+                            <div class="card-image-wrapper">
+                                {# ТВОЯТА ЛОГИКА ЗА ИЗОБРАЖЕНИЯТА И ВИДЕО Е ТУК #}
+                                {% set media_src = item.media_url or '' %}
+                                {% if 'youtube.com' in media_src or 'youtu.be' in media_src %}
+                                    <span class="video-icon"><i class="bi bi-play-circle-fill"></i></span>
+                                    {# Извличаме ID-то на видеото за thumbnail #}
+                                    {% set video_id = media_src.split('v=')[-1].split('&')[0].split('/')[-1] %}
+                                    <img src="https://img.youtube.com/vi/{{ video_id }}/mqdefault.jpg" class="card-img-top" alt="{{ item.title }}">
+                                {% else %}
+                                    <img src="{{ media_src if media_src.startswith('http') else url_for('static', filename=media_src) if media_src else url_for('static', filename='images/placeholder.svg') }}" class="card-img-top" alt="{{ item.title }}">
+                                {% endif %}
+                            </div>
+                            <div class="card-badges">
+                                <span class="badge-new">NEW</span>
+                                {% if item.content_type == 'GUIDE' %}
+                                    <span class="badge-type guide">Guide</span>
+                                {% elif item.content_type == 'NEWS' %}
+                                    <span class="badge-type news">News</span>
+                                {% endif %}
+                            </div>
+                        </a>
+                        <div class="card-body">
+                            <p class="card-category">{{ item.category or 'Обща' }}</p>
+                            <h3 class="card-title">
+                                <a href="{{ url_for('academy.view_item', item_id=item.id) }}">
+                                    {{ item.title }}
+                                </a>
+                            </h3>
+                            <p class="card-summary">{{ item.summary }}</p>
+                        </div>
+                        <div class="card-footer">
+                            <div class="read-time">
+                                <i class="bi bi-clock"></i>
+                                {{ item.read_time_minutes or 2 }} min read
+                            </div>
+                            <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="btn-card-open">
+                                Отвори <i class="bi bi-arrow-right-short"></i>
+                            </a>
+                        </div>
+                    </article>
+                </div>
+            {% else %}
+                <div class="col-12">
+                    <div class="alert alert-secondary text-center">
+                        <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+                        Няма публикувани статии към момента.
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
 </div>
 {% endblock %}

@@ -520,7 +520,25 @@ class StockOrder(Base):
     items = relationship("StockOrderItem", back_populates="stock_order", cascade="all, delete-orphan")
     assignments = relationship("StockOrderAssignment", back_populates="stock_order", cascade="all, delete-orphan")
     scan_tasks = relationship("ScanTask", back_populates="stock_order")
-    ppp_document = relationship("PPPDocument", back_populates="stock_order", uselist=False, cascade="all, delete-orphan")
+    ppp_documents = relationship("PPPDocument", back_populates="stock_order", cascade="all, delete-orphan")
+
+    @property
+    def latest_ppp_document(self):
+        if not self.ppp_documents:
+            return None
+        return max(self.ppp_documents, key=lambda doc: doc.created_at or doc.id)
+
+    @property
+    def ppp_document(self):
+        return self.latest_ppp_document
+
+    @ppp_document.setter
+    def ppp_document(self, value):
+        if value is None:
+            self.ppp_documents = []
+            return
+        if value not in self.ppp_documents:
+            self.ppp_documents.append(value)
     last_handover_by = relationship("User", foreign_keys=[last_handover_by_id], backref="handovers")
     delivered_by = relationship("User", foreign_keys=[delivered_by_id], backref="delivered_orders")
 
@@ -547,7 +565,10 @@ class StockOrderItem(Base):
 
     @property
     def remaining_to_deliver(self):
-        return max((self.quantity_prepared or 0) - (self.quantity_delivered or 0), 0)
+        remaining = (self.quantity_prepared or 0) - (self.quantity_delivered or 0)
+        if remaining <= 1e-6:
+            return 0.0
+        return remaining
 
     @property
     def preparation_status(self):
@@ -586,7 +607,7 @@ class PPPDocument(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    stock_order = relationship("StockOrder", back_populates="ppp_document")
+    stock_order = relationship("StockOrder", back_populates="ppp_documents")
 
 
 class ContentItem(Base):

@@ -1,72 +1,144 @@
-﻿# GSTROY Internal ERP Demo
+{% raw %}
+# GSTROY Mini Internal — Production-ready Flask ERP Demo
 
-Това е моето лично Flask демо, в което съм сложил всички логики, които искам да покажа на девовете как да ги прехвърлят в Django. Нямам достъп до техния проект, затова си направих свои примери с PickPoint потоци, ERP payload-и, принтер хъб и всичко между тях - така мога да обясня кое къде влиза, без да им ровя в репото.
+This repository houses a Flask-based stock-order fulfillment simulator with PPP document generation, scan tracking, and academy/administration dashboards. The goal is to present a complete working example that can be referenced when porting the experience to Django 4.2.
 
-> Говорим като приятели, а не като спецификация, така че очаквай жаргон, усмивки и намигания. :-)
+---
 
-## Какво ще видиш тук
+## Table of Contents
 
-- **Flask + blueprints**: `app/blueprints/` държи модулите `admin`, `catalog`, `logistics`, `orders`, `products`, `scanning` и `main`. Всеки е с отделни view функции, шаблони и helpers, така че лесно може да се превърне в Django app/urls.
-- **Service слой**: `app/services/order_tasks.py` съдържа логики за scan tasks, ERP payload-и, генерация на PDF/CSV, планиране на stock orders и комуникация с PickPoint. Може да се раздели в Django services или Celery jobs.
-- **Модели и БД**: `database.py` и `models.py` са написани с SQLAlchemy. Има seed данни, генератори за кодове (`LST/PLT/TRF`) и helpers за FK, така че може да ги преведете директно в Django models + data migrations.
-- **Printer service**: `printer_service/` е отделен blueprint, който слуша `/printer-hub`. Тук симулирам label server и права за изпращане на PDF/label към физически принтери (`docs/printer-module.md` описва всички детайли). Django екипът може да пренапише това като самостоятелен app.
-- **UI + static assets**: `templates/` и `static/` са напълно Bootstrap 5 и responsive. Има готови fragment-и за `stock_orders_*`, `scanner`, `ppp_documents`, `pallets` и QR helpers.
-- **Docs и notes**: `docs/architecture.md`, `docs/blueprints.md` и `docs/printer-module.md` описват съставните части, отделните маршрути и какво да очаквате от принтер модула.
+1. [Project Overview](#project-overview)
+2. [Architecture & Core Components](#architecture--core-components)
+3. [Stock-order Workflow](#stock-order-workflow)
+4. [PPP document lifecycle](#ppp-document-lifecycle)
+5. [Scanning & event history](#scanning--event-history)
+6. [Academy / Admin extras](#academy--admin-extras)
+7. [Local setup](#local-setup)
+8. [Running & debugging](#running--debugging)
+9. [Database / seed data](#database--seed-data)
+10. [Testing](#testing)
+11. [Contribution & GitHub publish](#contribution--github-publish)
+12. [Key references](#key-references)
 
-## Как да го стартираш
+---
+
+## Project Overview
+
+- **Language / Framework:** Python 3.11+, Flask + Blueprint structure.
+- **Purpose:** Demonstrate an ERP-like flow covering stock order creation, preparation, handover with signed PPPs, scan tracking, and a lightweight academy/content hub. The README, code, and views intentionally mirror what teams might rebuild in Django 4.2.
+- **Tone:** production-grade (transactions, logging, document history), but intentionally simple enough for demonstration and follow-up learning.
+
+## Architecture & Core Components
+
+| Layer | Description |
+| --- | --- |
+| **app/\*** | Flask imperative code grouped in blueprints (`orders`, `academy`, `printer`, etc.). Each blueprint exposes REST endpoints and template renders. |
+| **models.py** | SQLAlchemy model graph: `StockOrder`, `StockOrderItem`, `ScanTask`, `ScanEvent`, `PPPDocument`, `User`, etc. Relationships power eager-loading in views. |
+| **constants.py** | Shared constants (PPP output paths, bootstrap helpers, stock order status labels). |
+| **services/** | `order_tasks.py` and other helpers encapsulate domain logic (ERP payloads, status updates, scan recording). |
+| **templates/** | Twig-like Jinja UI for dashboards and handovers, with components like `stock_order_handover.html`, `stock_order_ppp.html`, and academy pages. |
+| **utils.py** | Shared helpers: PDF generation (`generate_ppp_pdf`), signature persistence, normalization utilities. |
+
+## Stock-order Workflow
+
+1. `/stock-orders` dashboard loads 15 latest orders (non-delivered by default). The view uses `orders.stock_orders_dashboard`.
+2. `stock_order_prepare` allows warehouse staff to sync `ScanTask` progress vs. `StockOrderItem` via manual entry/editing. The API logs preparation events using `record_scan_event`.
+3. `stock_order_handover` (see `app/blueprints/orders.py`) is the signature-ready screen: it keeps analytics badges (`total_ordered`, `prepared_total`, `deliverable_total`), accepts per-item delivery quantities, captures a signature graphic via SignaturePad (stored by `utils.save_signature_image`), and persists updates in SQLAlchemy.
+4. Completed handovers update `StockOrder.status`, `delivered_at`, and emit _contextual logs_ through `_log_order_context`.
+
+## PPP document lifecycle
+
+- Each handover creates a new `PPPDocument` record that stores:
+  - `versus_ppp_id` (sequential identifier),
+  - `pdf_url` (draft copy) and `signed_pdf_url` (with signature image),
+  - `signature_image` path (e.g., `static/ppp/signature_<order>_<token>.png`),
+  - `status`, timestamps, and relations back to `StockOrder`.
+- This flow is implemented inside `stock_order_handover`. The PDF creation uses `utils.generate_ppp_pdf`. Signed PDFs are prioritized when viewing via `/stock-orders/<order>/ppp/pdf`.
+- `/stock-orders/<order>/ppp` renders:
+  - latest PPP summary and signed PDF/PNG previews,
+  - the order's full item list (read-only),
+  - PPP history with quick download buttons,
+  - scanning history pulled from `ScanTask`/`ScanEvent` to prove chain of custody.
+- `/stock-orders/completed` now surfaces every order that contains at least one PPP document, not just delivered status, making it a PPP archive (cards or table view toggle).
+
+## Scanning & event history
+
+- `ScanTask`/`ScanTaskItem` models track per-order picks, updates, and statuses (`open`, `in_progress`, `completed`).
+- Events are logged via `record_scan_event`, capturing `qty`, `source` (`scan`/`manual`), `message`, and any errors.
+- The PPP page eager-loads each scan task plus its events (and the event’s item/product) to display a full audit trail without reattaching or hitting `DetachedInstanceError`.
+
+## Academy & Admin extras
+
+- `printer_service/` simulates an external label server, showcasing how list/product labels could be sent.
+- The academy blueprint builds knowledge base, push notifications, and progressive reading tracking via `UserContentProgress`.
+- Admin templates (`templates/admin_academy.html`, `templates/admin_panel.html`) expose quick insights and controls (academy pushes, PPP stats, scanning dashboards).
+
+## Local setup
 
 ```powershell
 python -m venv .venv
-.venv/Scripts/activate
+.venv\\Scripts\\Activate.ps1
 pip install -r requirements.txt
-python -m flask run --reload
+.\\setup.ps1      # seeds DB + assets
+.\\setup.ps1 -Run  # starts dev server with reload
 ```
 
-Или използвай helper скриптовете:
+- Environment variables:
+  - `ERP_DEMO_DATABASE_URL`: defaults to `sqlite:///erp_demo.db`; swap to Postgres if needed.
+  - `ERP_DEMO_SECRET_KEY`: change from `change-me`.
+  - `ERP_DEMO_DEFAULT_PASSWORD`: used when seeding `admin/demo1234`.
+  - `SIGNATURE_MAX_BYTES`: caps PNG uploads (default `200000` bytes).
 
-```powershell
-.\setup.ps1           # създава .venv и инсталира зависимостите
-.\setup.ps1 -Run      # run dev сървър
-```
+## Running & debugging
 
-```bash
-./setup.sh            # Linux/macOS/Git Bash
-./setup.sh run        # run dev сървър
-```
+- Launch via `python -m flask run --reload` after activating `.venv`.
+- Debug endpoints:
+  - `/stock-orders/<id>/prepare`
+  - `/stock-orders/<id>/handover`
+  - `/stock-orders/<id>/ppp`
+  - `/stock-orders/<id>/erp-input|output`
+  - `/academy/dashboard`
+  - `/printer-hub/*` label mocks.
+- Logs: `_log_order_context` captures per-order metrics to the Flask logger for handover tracking.
 
-След логин можеш да разгледаш `/`, `/admin`, `/stock-orders`, `/scan-tasks`, `/printer-hub`, `/products` и `/catalog`.
+## Database & seed data
 
-## Конфигурация (env или config)
+- `database.py` ensures schema additions (PPP columns, last handover timestamps) and seeds:
+  - brands, service points, warehouses.
+  - `StockOrder` examples (`2200923775`, `2200923777`).
+  - `ScanTask`, `ScanTaskItem`, `PPPDocument` history.
+- Running `python database.py` from `setup.ps1` loads the demo dataset.
 
-| Променлива | Стойност по подразбиране | За какво служи |
-|------------|---------------------------|----------------|
-| `ERP_DEMO_SECRET_KEY` | `change-me` | Сесиите, CSRF и всичко, което се крие зад login-а. Смени я преди да покажеш демото.
-| `ERP_DEMO_DATABASE_URL` | `sqlite:///erp_demo.db` | Свързване към SQLite, но става и Postgres/MySQL.
-| `ERP_DEMO_DEFAULT_PASSWORD` | `demo1234` | Seed паролата за `planner`, `builder`, `admin` и другите потребители.
-| `ERP_DEMO_MAX_UPLOAD_MB` | `4` | Максимален размер на CSV файлове при `catalog_sync`.
-| `ERP_DEMO_SIGNATURE_MAX_KB` | `512` | Лимит за png подписите в PPP.
-| `PRINTER_SERVER_URL` | `http://localhost:5000/printer-hub/print` | Къде се пращат заявките за принтиране.
+## Testing
 
-## Работа с проекта
+- No automated test suite is wired yet, but you can add `pytest` or `unittest` modules near helpers like `helpers.py`, `utils.py`, `app/services/order_tasks.py`.
+- Suggested quick checks:
+  - `python -m flask shell` to load session and ensure PPP creation paths work.
+  - `pytest tests` once new tests are added.
 
-1. `app/blueprints/` съдържа UX логиката, разбита по домейни: `/admin`, `/catalog`, `/orders`, `/scanning`, `/products`, `/stock-orders` (prepare, handover, dashboard). Всеки blueprint има свои шаблони и helpers.
-2. `app/services/order_tasks.py` показва как се подготвят ERP payload-и, как се работи със сканирани задачи и как се генерират PPP PDF-ове.
-3. `catalog_sync.py` + `catalog_utils.py` нормализират CSV данни и регистрират продуктите - идеален пример за background job.
-4. `printer_service/__init__.py` валидира подписите, рендира PDF и задейства принтера.
-5. Templates + static файловете са написани с Jinja и Bootstrap, готови да се пресъздадат в Django templates/staticfiles.
+## Contribution & GitHub publish
 
-## Хубави практики преди прехвърлянето към Django
+1. Keep branches per feature/fix (e.g., `feature/ppp-history`).
+2. Run linters/testers before committing changes tied to PPP generation or scanning tracking.
+3. After local changes:
+   ```bash
+   git add .
+   git commit -m "feat: describe PPP history"
+   git push origin <your-branch>
+   ```
+4. Create a PR referencing the Django 4.2 port intent; highlight how PPP docs, scan history, and academy modules map to Django apps/views.
 
-- Seed логиката от `database.py` може да се движи в Django fixtures/migrations.
-- `app/__init__.py` показва как се регистрират blueprints и services (CSRF, login, printer hub). В Django това е job за `apps.py` + `ready()`.
-- `constants.py` и `gstroy_constants.py` са домашната база от статуси, типове, шрифтове и CSV дефиниции. Може да се превърнат в Django enums или settings.
-- `docs/` папката служи като справочен материал за Django екипа - гайд за всяка част от flow-а.
+> 📌 _Note:_ I can’t push commits directly to GitHub from this environment, so please run the above push/PR steps after reviewing the changes.
 
-## Следващи крачки (ако искаш още)
+## Key references
 
-1. Добави `.gitignore` с `__pycache__/`, `.pyc`, `.db`, `.env` и други временни файлове.
-2. Ако искаш, пиша кратък Django README, който описва същите домейни и как да ги реализирате тук.
-3. Може да напишеш unit тестове (Pytest/Flask) за helper-ите и services.
-4. Готов съм да ти драсна секция за миграции и миграционни бележки в `docs/`.
+- `app/blueprints/orders.py`: dashboards, handovers, PPP viewing, PDF download, scan history enrichment.
+- `models.py`: `StockOrder`, `StockOrderItem`, `PPPDocument`, `ScanTask`, `ScanEvent`.
+- `templates/stock_order_handover.html` & `stock_order_ppp.html`: UX for deliveries and PPP archives.
+- `utils.py`: `generate_ppp_pdf`, `save_signature_image`, signature constraints.
+- `app/services/order_tasks.py`: helpers used by multiple blueprints (status updates, ERP payloads, scan logging).
 
-Ако искаш, мога да пратя и кратък текст за презентация или да сложа снимки/GIF-ове - кажи просто "+1" и го добавям. :-)
+---
+
+If you’re showcasing this to a Django audience, pair this README with a short cheat sheet that maps Flask blueprints/model relationships to Django views/apps and highlights how the PPP + scan history sections should be ported (models, templates, class-based views, signals).
+{% endraw %}

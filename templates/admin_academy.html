@@ -1,116 +1,155 @@
 {% extends "base.html" %}
 
-{% block title %}Academy Content | Admin{% endblock %}
+{% block title %}Academy Content | Админ{% endblock %}
 
 {% block content %}
-<div class="card mb-4">
-  <div class="card-body">
-    <h3 class="card-title mb-4">{{ edit_item and 'Редактирай съдържание' or 'Academy content' }}</h3>
-    <form method="post" enctype="multipart/form-data">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Заглавие</label>
-          <input name="title" class="form-control" value="{{ edit_item.title if edit_item else '' }}" required>
+<div class="container-fluid px-4 py-4 fade-in" style="max-width: 1200px;">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+        <div>
+          <h3 class="mb-1">{{ edit_item and "Редакция на обучителен елемент" or "Нов Academy елемент" }}</h3>
+          <p class="text-muted mb-0">Прегледай, редактирай и публикувай обучителни материали и stories.</p>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Категория</label>
-          <select name="category" class="form-select">
-            <option value="">Избери категория</option>
-            {% for cat in categories %}
-              <option value="{{ cat }}" {% if edit_item and edit_item.category == cat %}selected{% endif %}>{{ cat }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Тип съдържание</label>
-          <select name="content_type" class="form-select">
-            {% for ct in ['NEWS','GUIDE','STORY'] %}
-              <option value="{{ ct }}" {% if edit_item and edit_item.content_type == ct %}selected{% endif %}>{{ ct }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4 d-flex align-items-center">
-          <div class="form-check form-switch mt-3">
-            <input class="form-check-input" type="checkbox" name="is_published" {% if edit_item and edit_item.is_published %}checked{% endif %}>
-            <label class="form-check-label">Публикувано</label>
+        <a href="{{ url_for('admin.academy_content') }}" class="btn btn-outline-primary align-self-center">
+          <i class="bi bi-arrow-clockwise me-1"></i> Изчисти формата
+        </a>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="mt-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Заглавие</label>
+            <input name="title" class="form-control" value="{{ edit_item.title if edit_item else '' }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Категория</label>
+            <select name="category" class="form-select">
+              <option value="">Избери категория</option>
+              {% for cat in categories %}
+                <option value="{{ cat }}" {% if edit_item and edit_item.category == cat %}selected{% endif %}>{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Тип съдържание</label>
+            <select name="content_type" class="form-select">
+              {% for ct in ['GUIDE', 'NEWS', 'STORY'] %}
+                <option value="{{ ct }}" {% if edit_item and edit_item.content_type == ct %}selected{% endif %}>{{ ct }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Състояние</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="is_published" {% if edit_item and edit_item.is_published %}checked{% endif %}>
+              <label class="form-check-label">Публикуван</label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label text-muted small">Прогнозно време за четене</label>
+            <p class="mb-0">{{ edit_item.read_time_minutes if edit_item else "Автоматично" }}</p>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Медия (URL)</label>
+            <input class="form-control" name="media_url" value="{{ edit_item.media_url if edit_item else '' }}" placeholder="https://... или остави празно за upload">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Запис на файл (изберете снимка или видео)</label>
+            <input type="file" name="media_file" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Резюме</label>
+            <input name="summary" class="form-control" value="{{ edit_item.summary if edit_item else '' }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label">HTML съдържание</label>
+            <textarea name="content_html" class="form-control" rows="4">{{ edit_item.content_html if edit_item else '' }}</textarea>
           </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Мултимедия (URL)</label>
-          <input class="form-control" name="media_url" value="{{ edit_item.media_url if edit_item else '' }}">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">или качи файл</label>
-          <input type="file" name="media_file" class="form-control">
-        </div>
-        <div class="col-12">
-          <label class="form-label">Кратко описание</label>
-          <input name="summary" class="form-control" value="{{ edit_item.summary if edit_item else '' }}">
-        </div>
-        <div class="col-12">
-          <label class="form-label">Съдържание (HTML)</label>
-          <textarea name="content_html" class="form-control" rows="4">{{ edit_item.content_html if edit_item else '' }}</textarea>
-        </div>
         <input type="hidden" name="item_id" value="{{ edit_item.id if edit_item else '' }}">
-      </div>
-      <div class="mt-4">
-        <button class="btn btn-primary">{{ edit_item and 'Запази промени' or 'Запази съдържанието' }}</button>
-        {% if edit_item %}
-        <a href="{{ url_for('admin.academy_content') }}" class="btn btn-link">Откажи</a>
-        {% endif %}
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="card mb-3">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-      <h5 class="mb-0">Списък със съдържание</h5>
-      <form method="post" action="{{ url_for('admin.academy_push') }}" class="d-flex gap-2">
-        <select name="push_item_id" class="form-select form-select-sm">
-          {% for item in items %}
-            <option value="{{ item.id }}">{{ item.title }} ({{ item.content_type }})</option>
-          {% endfor %}
-        </select>
-        <button class="btn btn-sm btn-outline-danger">Send Push Notification</button>
+        <div class="mt-4 d-flex flex-wrap gap-3 align-items-center">
+          <button class="btn btn-primary">
+            {{ edit_item and "Запази промените" or "Създай елемент" }}
+          </button>
+          {% if edit_item %}
+          <a href="{{ url_for('admin.academy_content') }}" class="btn btn-link text-decoration-none">
+            Откажи
+          </a>
+          {% endif %}
+        </div>
       </form>
     </div>
-    {% if items %}
-      <div class="list-group">
-        {% for item in items %}
-          <div class="list-group-item d-flex align-items-start justify-content-between gap-3 flex-wrap">
-            <div class="flex-fill">
-              <div class="d-flex align-items-center gap-3">
-                <strong class="fs-5">{{ item.title }}</strong>
-                <span class="badge bg-info">{{ item.content_type }}</span>
-              </div>
-              <p class="mb-1 text-muted small">
-                {{ item.category or 'Без категория' }} • ~{{ item.read_time_minutes or 2 }} мин
-              </p>
-              <div class="d-flex gap-3 flex-wrap align-items-center text-muted small">
-                <span>Прочетено: {{ stats.get(item.id, 0) }}</span>
-                <span>Реакции:</span>
-                <div class="d-flex gap-1 flex-wrap">
-                  {% for reaction, count in reactions.get(item.id, {}).items() %}
-                    <span class="badge bg-light text-dark">{{ reaction }} {{ count }}</span>
-                  {% else %}
-                    <span class="text-muted">няма</span>
-                  {% endfor %}
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+        <div>
+          <h5 class="mb-1">Списък на съдържанието</h5>
+          <p class="text-muted mb-0">Публикувани и чернови с кратки статистики.</p>
+        </div>
+        <form method="post" action="{{ url_for('admin.academy_push') }}" class="d-flex gap-2">
+          <select name="push_item_id" class="form-select form-select-sm">
+            {% for item in items %}
+              <option value="{{ item.id }}">{{ item.title }} ({{ item.content_type }})</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-danger">Изпрати push</button>
+        </form>
+      </div>
+
+      {% if items %}
+        <div class="list-group list-group-flush">
+          {% for item in items %}
+            <div class="list-group-item rounded-3 border mb-2 shadow-sm">
+              <div class="d-flex justify-content-between flex-column flex-lg-row gap-3">
+                <div class="flex-grow-1">
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <strong class="fs-5 mb-0">{{ item.title }}</strong>
+                    <span class="badge bg-info text-dark">{{ item.content_type }}</span>
+                    <span class="badge bg-secondary text-white">{{ item.category or "Без категория" }}</span>
+                    {% if item.is_published %}
+                      <span class="badge bg-success">Публикувана</span>
+                    {% else %}
+                      <span class="badge bg-warning text-dark">Чернова</span>
+                    {% endif %}
+                  </div>
+                  <p class="text-muted mb-1 small">{{ item.summary }}</p>
+                  <div class="d-flex gap-3 flex-wrap text-muted small">
+                    <span>Прочетена {{ stats.get(item.id, 0) }} пъти</span>
+                    <span>Категория: {{ item.category or "Общи" }}</span>
+                    <span>Създадена: {{ item.created_at.strftime('%d.%m.%Y') }}</span>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    {% set reactions_for_item = reactions.get(item.id, {}) %}
+                    {% if reactions_for_item %}
+                      {% for reaction, count in reactions_for_item.items() %}
+                        <span class="badge bg-light text-dark">{{ reaction }} {{ count }}</span>
+                      {% endfor %}
+                    {% else %}
+                      <span class="text-muted small">Все още няма реакции</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="text-end">
+                  <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="btn btn-sm btn-outline-dark mb-2" target="_blank">
+                    Прегледай
+                  </a>
+                  <a href="{{ url_for('admin.academy_content') }}?edit={{ item.id }}" class="btn btn-sm btn-primary mb-2">
+                    Редактирай
+                  </a>
+                  <div class="text-muted small">
+                    {{ item.read_time_minutes or 2 }} мин. четене
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="text-end">
-              <small class="text-muted d-block">Създадено: {{ item.created_at.strftime('%d.%m.%Y') }}</small>
-              <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="btn btn-sm btn-link">Преглед</a>
-              <a href="{{ url_for('admin.academy_content') }}?edit={{ item.id }}" class="btn btn-sm btn-outline-primary">Редактирай</a>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="alert alert-secondary mb-0">Все още няма съдържание.</div>
-    {% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">Все още няма добавено Academy съдържание.</div>
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}

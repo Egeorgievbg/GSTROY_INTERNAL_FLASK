@@ -1,66 +1,186 @@
 {% extends "base.html" %}
 
-{% block title %}ППП · {{ order.external_id or order.id }}{% endblock %}
+{% block title %}ППП документ #{{ order.external_id or order.id }} | GSTROY{% endblock %}
 
 {% block content %}
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div>
-      <h1 class="h3 mb-0">Приемо-предавателен протокол</h1>
-      <div class="text-muted small">СН {{ order.external_id or order.id }} · Клиент: {{ order.client_name }}</div>
-    </div>
-    <a class="btn btn-outline-secondary" href="{{ url_for('orders.stock_order_handover', order_id=order.id) }}">Назад към предаване</a>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+  <div>
+    <h1 class="h3 fw-bold mb-1">ППП архив</h1>
+    <p class="text-muted mb-1">{{ order.external_id or order.id }} – {{ order.client_name }}</p>
+    <small class="text-muted">Последна версия: {{ ppp.updated_at.strftime('%d.%m.%Y %H:%M') if ppp.updated_at else '—' }}</small>
   </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-outline-secondary" href="{{ url_for('orders.stock_order_handover', order_id=order.id) }}">
+      <i class="bi bi-arrow-left me-1"></i> Назад към приемането
+    </a>
+    {% if pdf_url %}
+      <a class="btn btn-primary" href="{{ pdf_url }}" target="_blank">
+        <i class="bi bi-file-earmark-pdf me-1"></i> Покажи последния PDF
+      </a>
+    {% endif %}
+  </div>
+</div>
 
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="d-flex justify-content-end gap-2 mb-3">
-        <button type="button" class="btn btn-sm btn-outline-info" data-json-endpoint="{{ url_for('orders.stock_order_erp_input', order_id=order.id) }}" data-json-title="ERP вход · {{ order.external_id or order.id }}">IN</button>
-        <button type="button" class="btn btn-sm btn-outline-info" data-json-endpoint="{{ url_for('orders.stock_order_erp_output', order_id=order.id) }}" data-json-title="ERP изход · {{ order.external_id or order.id }}">OUT</button>
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+      <div>
+        <div class="text-dark"><strong>Клиент:</strong> {{ order.client_name }}</div>
+        <div class="text-dark"><strong>Статус:</strong> {{ ppp.status }}</div>
       </div>
-      <div class="row g-3 mb-3 text-muted">
-        <div class="col-md-3">
-          <div class="small">Клиент</div>
-          <div class="fw-bold text-dark">{{ order.client_name }}</div>
-        </div>
-        <div class="col-md-3">
-          <div class="small">Предадено на</div>
-          <div class="text-dark">
-            {{ order.delivered_at.strftime('%Y-%m-%d %H:%M') if order.delivered_at else '—' }}
+      <div class="text-muted small">
+        <div>Последна актуализация: {{ ppp.updated_at.strftime('%d.%m.%Y %H:%M') if ppp.updated_at else '—' }}</div>
+        <div>Получател / подписал: {{ order.recipient_name or '—' }}</div>
+      </div>
+    </div>
+    {% if pdf_url %}
+      <div class="mt-3">
+        <iframe src="{{ pdf_url }}" title="PPP PDF" class="ratio ratio-16x9 border" allowfullscreen></iframe>
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">Все още няма генериран PDF. Завърши приемането, за да създадеш документа.</p>
+    {% endif %}
+    {% if signature_url %}
+      <div class="mt-3">
+        <div class="small text-muted mb-1">Подпис:</div>
+        <img src="{{ signature_url }}" alt="Подпис" class="border rounded" style="max-width: 320px;">
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header-strip">
+    <h5 class="mb-0">Продукти</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-modern mb-0">
+      <thead>
+        <tr>
+          <th>Артикул</th>
+          <th class="text-center">Поръчано</th>
+          <th class="text-center">Приготвено</th>
+          <th class="text-center">Доставено</th>
+          <th class="text-center">Оставащо</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items %}
+          <tr>
+            <td>
+              <strong>{{ item.product.name if item.product else 'Unknown' }}</strong>
+              <div class="text-muted small">{{ item.product.item_number if item.product else '—' }}</div>
+            </td>
+            <td class="text-center">{{ item.quantity_ordered }}</td>
+            <td class="text-center">{{ item.quantity_prepared }}</td>
+            <td class="text-center">{{ item.quantity_delivered }}</td>
+            <td class="text-center">{{ item.remaining_to_deliver }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modern-card shadow-sm mb-4">
+  <div class="card-header-strip">
+    <h5 class="mb-0">История на ППП</h5>
+  </div>
+  <div class="card-body">
+    {% if documents %}
+      {% for doc in documents %}
+        <div class="border rounded-3 p-3 mb-3">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+              <strong>#{{ doc.versus_ppp_id }}</strong>
+              <div class="small text-muted">
+                {{ doc.created_at.strftime('%d.%m.%Y %H:%M') if doc.created_at else '—' }}
+              </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              {% if doc.pdf_url %}
+                <a href="{{ url_for('orders.stock_order_ppp_pdf', order_id=order.id, doc_id=doc.id) }}" class="btn btn-sm btn-outline-success" target="_blank">
+                  <i class="bi bi-file-earmark-pdf"></i> Отвори PDF
+                </a>
+              {% endif %}
+              {% if doc.signature_image %}
+                <a href="{{ url_for('static', filename=doc.signature_image) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                  <i class="bi bi-pen-fill"></i> Подпис
+                </a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="small text-muted mt-2">
+            Обновено: {{ doc.updated_at.strftime('%d.%m.%Y %H:%M') if doc.updated_at else '—' }}
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="small">Предал</div>
-          <div class="text-dark">
-            {{ order.delivered_by.full_name if order.delivered_by else '—' }}
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="small">PPP статус</div>
-          <div class="text-dark">{{ ppp.status }}</div>
-        </div>
-      </div>
-
-      {% if pdf_url %}
-        <div class="mb-2">
-          <a class="btn btn-outline-primary" href="{{ pdf_url }}" target="_blank">
-            <i class="bi bi-file-earmark-pdf"></i> Отвори PDF
-          </a>
-        </div>
-        <div class="ratio ratio-16x9 border mb-3">
-          <iframe src="{{ pdf_url }}" title="PPP PDF" allowfullscreen></iframe>
-        </div>
-      {% else %}
-        <p class="text-muted">Все още няма генериран PDF.</p>
-      {% endif %}
-
-      {% if signature_url %}
-        <div>
-          <div class="small text-muted">Подпис:</div>
-          <img src="{{ signature_url }}" alt="Подпис" class="border rounded" style="max-width: 320px;">
-        </div>
-      {% else %}
-        <p class="text-muted">Подписът липсва.</p>
-      {% endif %}
-    </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted mb-0">Все още няма записани ППП документи за тази поръчка.</p>
+    {% endif %}
   </div>
+</div>
+
+<div class="modern-card shadow-sm">
+  <div class="card-header-strip">
+    <h5 class="mb-0">История на сканиранията</h5>
+  </div>
+  <div class="card-body">
+    {% if scan_tasks %}
+      {% for task in scan_tasks %}
+        <div class="border rounded-3 p-3 mb-3">
+          <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div>
+              <strong>{{ task.name }}</strong>
+              <div class="small text-muted">
+                {{ task.type }} · {{ task.status }} · {{ task.created_at.strftime('%d.%m.%Y %H:%M') if task.created_at else '—' }}
+              </div>
+            </div>
+            <div class="text-end text-muted small">
+              {{ task.completed_items }} / {{ task.total_items }} артикула
+              {% if task.created_by %}
+                · {{ task.created_by.email or task.created_by.name }}
+              {% endif %}
+            </div>
+          </div>
+          {% if task.events %}
+            <div class="table-responsive mt-3">
+              <table class="table table-striped table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>Време</th>
+                    <th>Артикул / баркод</th>
+                    <th>Количество</th>
+                    <th>Източник</th>
+                    <th>Бележка</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for event in task.events %}
+                    <tr class="{{ 'table-danger' if event.is_error else '' }}">
+                      <td>{{ event.created_at.strftime('%d.%m.%Y %H:%M') if event.created_at else '—' }}</td>
+                      <td>
+                        <div class="fw-bold">
+                          {{ event.item.product.name if event.item and event.item.product else event.barcode or '—' }}
+                        </div>
+                        <div class="small text-muted">{{ event.item.barcode if event.item else event.message or '' }}</div>
+                      </td>
+                      <td class="text-center">{{ event.qty }}</td>
+                      <td>{{ event.source }}</td>
+                      <td>{{ event.message or '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-muted mb-0 mt-3">Няма регистрирани сканирания за тази задача.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted mb-0">Няма записани сканирания за тази поръчка.</p>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}

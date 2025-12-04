@@ -1,16 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Предаване #{{ order.id }} | GSTROY{% endblock %}
+{% block title %}Предаване на поръчка #{{ order.id }} | GSTROY{% endblock %}
 
 {% block content %}
 <style>
-    /* Signature Canvas Styling */
     .signature-wrapper {
         position: relative;
         border: 2px dashed #cbd5e1;
         border-radius: 16px;
         background-color: #f8fafc;
         cursor: crosshair;
-        touch-action: none; /* Спира скролването докато подписваш на мобилен */
+        touch-action: none;
         overflow: hidden;
         transition: border-color 0.2s;
     }
@@ -20,40 +19,33 @@
     }
     #signature-pad {
         width: 100%;
-        height: 200px;
+        height: 220px;
         display: block;
     }
     .clear-sig-btn {
-        position: absolute; top: 10px; right: 10px; z-index: 10;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
     }
-    
-    /* Input styling for quantities */
-    .qty-input {
-        border: 1px solid #e2e8f0;
-        background: #f8fafc;
-        font-weight: 700;
-        text-align: center;
-        border-radius: 8px;
-        transition: all 0.2s;
+    .sig-instructions {
+        font-size: 0.9rem;
+        color: #475569;
+        line-height: 1.4;
     }
-    .qty-input:focus {
-        background: #fff;
-        border-color: var(--brand-green);
-        box-shadow: 0 0 0 3px rgba(166, 207, 57, 0.15);
+    .modal-backdrop.show {
+        opacity: 0.6;
     }
-    .qty-input:disabled {
-        background: transparent;
-        border: none;
-        color: #94a3b8;
+    #signatureModal.modal {
+        z-index: 1060;
     }
 </style>
 
-<!-- 1. HEADER -->
 <div class="detail-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-4 fade-in">
     <div>
         <div class="d-flex align-items-center gap-2 mb-2">
             <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
-                <i class="bi bi-box-seam me-1"></i> ПРЕДАВАНЕ
+                <i class="bi bi-box-seam me-1"></i> Преглед на предаването
             </span>
             <span class="badge bg-light text-dark border font-monospace">
                 #{{ order.external_id or order.id }}
@@ -61,10 +53,9 @@
         </div>
         <h1 class="h3 fw-bold text-dark mb-1">{{ order.client_name }}</h1>
         <div class="text-muted small">
-            Статус на поръчката: <strong>{{ status_labels.get(order.status, order.status) }}</strong>
+            Статус: <strong>{{ status_labels.get(order.status, order.status) }}</strong>
         </div>
     </div>
-
     <div class="d-flex flex-column align-items-end gap-2">
         <div class="btn-group shadow-sm rounded-3">
             <button type="button" class="btn btn-white border text-muted small fw-bold" 
@@ -74,22 +65,19 @@
                     data-json-endpoint="{{ url_for('orders.stock_order_erp_output', order_id=order.id) }}" 
                     data-json-title="ERP Out">OUT</button>
         </div>
-        
         <div class="d-flex gap-2 mt-2">
-            <!-- FIXED LINK HERE: Changed from 'stock_order_detail' to 'stock_order_prepare' -->
             <a href="{{ url_for('orders.stock_order_prepare', order_id=order.id) }}" class="btn btn-light border text-muted">
-                <i class="bi bi-arrow-left me-1"></i> Назад
+                <i class="bi bi-arrow-left me-1"></i> Назад към подготовката
             </a>
             {% if order.ppp_document %}
                 <a href="{{ url_for('orders.stock_order_ppp', order_id=order.id) }}" class="btn btn-dark">
-                    <i class="bi bi-file-earmark-text me-1"></i> Виж ППП
+                    <i class="bi bi-file-earmark-text me-1"></i> Прегледай ППП
                 </a>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- 2. INFO GRID -->
 <div class="row g-4 mb-4 fade-in" style="animation-delay: 0.1s;">
     <div class="col-md-4">
         <div class="metrics-card">
@@ -107,34 +95,52 @@
     <div class="col-md-4">
         <div class="metrics-card">
             <div class="metric-label mb-1">Бележка</div>
-            <div class="text-dark fst-italic">{{ order.note or 'Няма бележка' }}</div>
+            <div class="text-dark fst-italic">{{ order.note or '—' }}</div>
         </div>
     </div>
 </div>
 
-<!-- 3. FORM & TABLES -->
+<div class="row g-3 mb-4 fade-in" style="animation-delay: 0.12s;">
+    <div class="col-md-4">
+        <div class="prep-stat-card">
+            <div class="stat-title">Общо поръчано</div>
+            <div class="stat-value text-dark">{{ total_ordered|default(0) }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="prep-stat-card">
+            <div class="stat-title">Подготвено</div>
+            <div class="stat-value text-success">{{ prepared_total|default(0) }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="prep-stat-card">
+            <div class="stat-title">Остава за предаване</div>
+            <div class="stat-value text-warning">{{ deliverable_total|default(0) }}</div>
+        </div>
+    </div>
+</div>
+
 <form method="post" id="handoverForm" class="fade-in" style="animation-delay: 0.2s;">
     <input type="hidden" name="signature_data" id="signatureData">
-    
     <div class="modern-card mb-4">
         <div class="card-header-strip bg-light">
-            <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-person-badge me-2"></i>Данни за приемане</h6>
+            <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-person-badge me-2"></i> Данни за приемане</h6>
         </div>
         <div class="card-body-custom">
-            <label class="form-label fw-bold small text-uppercase text-muted">Име на получател</label>
-            <input type="text" class="form-control form-control-lg" name="recipient_name" 
-                   value="{{ order.recipient_name or order.client_name }}" 
-                   placeholder="Име и Фамилия" required>
+            <label class="form-label fw-bold small text-uppercase text-muted">Име на получателя</label>
+            <input type="text" class="form-control form-control-lg" name="recipient_name"
+                   value="{{ order.recipient_name or order.client_name }}"
+                   placeholder="Напиши името на човек, който подписва" required>
         </div>
     </div>
 
     {% for section in order.service_point_sections %}
     <div class="modern-card mb-4">
         <div class="card-header-strip">
-            <div class="fw-bold text-dark">{{ section.service_point.name if section.service_point else 'Основна секция' }}</div>
+            <div class="fw-bold text-dark">{{ section.service_point.name if section.service_point else 'Участък' }}</div>
             <span class="badge bg-light text-muted border">{{ section["items"]|length }} артикула</span>
         </div>
-        
         <div class="table-responsive">
             <table class="table table-modern mb-0">
                 <thead>
@@ -142,9 +148,9 @@
                         <th>Артикул</th>
                         <th class="text-center">Поръчано</th>
                         <th class="text-center">Подготвено</th>
-                        <th class="text-center">Предадено</th>
-                        <th class="text-center">Остава</th>
-                        <th style="width: 150px;" class="text-end">За предаване</th>
+                        <th class="text-center">Доставено</th>
+                        <th class="text-center">Оставащо</th>
+                        <th class="text-end">За предаване</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -163,11 +169,11 @@
                         </td>
                         <td class="text-end">
                             {% if disabled %}
-                                <span class="badge bg-success"><i class="bi bi-check-lg"></i> Готово</span>
+                                <span class="badge bg-success"><i class="bi bi-check-lg"></i> Предадено</span>
                             {% else %}
-                                <input type="number" name="deliver_{{ item.id }}" 
-                                       class="form-control qty-input" 
-                                       min="0" max="{{ item.remaining_to_deliver }}" step="1" 
+                                <input type="number" name="deliver_{{ item.id }}"
+                                       class="form-control qty-input"
+                                       min="0" max="{{ item.remaining_to_deliver }}" step="1"
                                        value="{{ item.remaining_to_deliver }}">
                             {% endif %}
                         </td>
@@ -179,133 +185,106 @@
     </div>
     {% endfor %}
 
-    <!-- STICKY ACTION BAR -->
-    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4 mb-5 pb-5">
-        <button type="button" class="btn btn-brand-new btn-lg px-5 py-3 shadow-lg d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#signatureModal">
-            <i class="bi bi-pen-fill"></i> Подпис и Приключване
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4 mb-5 pb-5 flex-column flex-md-row align-items-start align-items-md-center">
+        <button type="button" id="handoverActionBtn" class="btn btn-brand-new btn-lg px-5 py-3 shadow-lg d-flex align-items-center justify-content-center gap-2" data-bs-toggle="modal" data-bs-target="#signatureModal" {% if not has_deliverable %}disabled{% endif %}>
+            <i class="bi bi-pen-fill"></i> Запиши подпис
         </button>
+        <p class="small text-muted mb-0" id="handoverNotice" data-ready-message="{{ deliverable_hint|e }}" data-empty-message="{{ no_deliverable_hint|e }}">
+            {{ deliverable_hint if has_deliverable else no_deliverable_hint }}
+        </p>
     </div>
 </form>
 
-<!-- SIGNATURE MODAL -->
 <div class="modal fade" id="signatureModal" tabindex="-1" aria-labelledby="sigModalLabel" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4">
       <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title fw-bold text-dark">Потвърждение от клиент</h5>
+        <h5 class="modal-title fw-bold text-dark">Подпис за предаване</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      
       <div class="modal-body">
-        <p class="text-muted small mb-3">
-            Моля, положете подпис, за да удостоверите получаването на стоките.
+        <p class="sig-instructions mb-3">
+            Потвърждавам, че съм проверил наличието, състоянието и кода на стоката, както и че получателят получава това, което е описано в таблицата по-горе.
         </p>
-        
         <div class="signature-wrapper">
-            <button type="button" class="btn btn-sm btn-light border text-muted clear-sig-btn shadow-sm" id="clearSig" title="Изчисти">
+            <button type="button" class="btn btn-sm btn-light border text-muted clear-sig-btn shadow-sm" id="clearSig" title="Изчисти подписа">
                 <i class="bi bi-eraser-fill"></i>
             </button>
             <canvas id="signature-pad"></canvas>
         </div>
-        
         <div class="text-danger small mt-2 d-none fw-bold" id="sigError">
-            <i class="bi bi-exclamation-circle me-1"></i> Подписът е задължителен.
+            <i class="bi bi-exclamation-circle me-1"></i> Моля подпиши с пръст или мишка, за да продължиш.
         </div>
       </div>
-      
       <div class="modal-footer border-0 pt-0">
         <button type="button" class="btn btn-light text-muted fw-bold" data-bs-dismiss="modal">Отказ</button>
         <button type="button" class="btn btn-brand-new px-4" id="confirmSignature">
-            <i class="bi bi-check-lg me-2"></i> Потвърди и Запиши
+            <i class="bi bi-check-lg me-2"></i> Потвърди и запиши
         </button>
       </div>
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
-<!-- Signature Pad Library -->
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // 1. FIX Z-INDEX ISSUE: Move modal to body
+        const wrapper = document.querySelector('.signature-wrapper');
+        const canvas = document.getElementById('signature-pad');
+        const sigInput = document.getElementById('signatureData');
+        const sigError = document.getElementById('sigError');
+        const form = document.getElementById('handoverForm');
         const modalEl = document.getElementById('signatureModal');
-        if (modalEl) {
+        if (modalEl && modalEl.parentNode !== document.body) {
             document.body.appendChild(modalEl);
         }
 
-        // 2. INIT SIGNATURE PAD
-        const canvas = document.getElementById('signature-pad');
-        const wrapper = document.querySelector('.signature-wrapper');
-        const form = document.getElementById('handoverForm');
-        const sigInput = document.getElementById('signatureData');
-        const sigError = document.getElementById('sigError');
-        
-        // Function to handle high-DPI screens (Retina)
         function resizeCanvas() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             canvas.width = wrapper.offsetWidth * ratio;
             canvas.height = wrapper.offsetHeight * ratio;
             canvas.getContext("2d").scale(ratio, ratio);
         }
-
         window.addEventListener("resize", resizeCanvas);
-        
-        // IMPORTANT: Resize when modal opens to prevent 0x0 size
-        const bsModal = document.getElementById('signatureModal');
-        bsModal.addEventListener('shown.bs.modal', function () {
-            resizeCanvas();
-        });
 
         const signaturePad = new SignaturePad(canvas, {
             backgroundColor: 'rgba(255, 255, 255, 0)',
-            penColor: 'rgb(15, 23, 42)', // Dark ink
-            velocityFilterWeight: 0.7
+            penColor: 'rgb(15, 23, 42)',
+            velocityFilterWeight: 0.7,
         });
 
-        // Visual feedback on interaction
-        canvas.addEventListener('touchstart', () => wrapper.classList.add('active'));
-        canvas.addEventListener('touchend', () => wrapper.classList.remove('active'));
-        canvas.addEventListener('mousedown', () => wrapper.classList.add('active'));
-        canvas.addEventListener('mouseup', () => wrapper.classList.remove('active'));
-
-        // Clear Action
         document.getElementById('clearSig').addEventListener('click', function() {
             signaturePad.clear();
             sigError.classList.add('d-none');
             wrapper.style.borderColor = '#cbd5e1';
         });
 
-        // Submit Action
         document.getElementById('confirmSignature').addEventListener('click', function() {
             if (signaturePad.isEmpty()) {
                 sigError.classList.remove('d-none');
                 wrapper.style.borderColor = '#ef4444';
-                // Shake effect
                 wrapper.animate([
-                    { transform: 'translateX(0)' }, 
-                    { transform: 'translateX(-5px)' }, 
-                    { transform: 'translateX(5px)' }, 
+                    { transform: 'translateX(0)' },
+                    { transform: 'translateX(-5px)' },
+                    { transform: 'translateX(5px)' },
                     { transform: 'translateX(0)' }
                 ], { duration: 200 });
                 return;
             }
-
-            // Save to hidden input
-            const dataUrl = signaturePad.toDataURL('image/png');
-            sigInput.value = dataUrl;
-            
-            // Hide modal properly
-            const modalInstance = bootstrap.Modal.getInstance(bsModal);
+            sigInput.value = signaturePad.toDataURL('image/png');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
             modalInstance.hide();
-            
-            // Submit form
             form.submit();
         });
+
+        signaturePad.addEventListener('beginStroke', () => wrapper.classList.add('active'));
+        signaturePad.addEventListener('endStroke', () => wrapper.classList.remove('active'));
+        resizeCanvas();
+
+        modalEl.addEventListener('shown.bs.modal', resizeCanvas);
     });
 </script>
 {% endblock %}

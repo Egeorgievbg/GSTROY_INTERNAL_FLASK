@@ -92,9 +92,11 @@ def ensure_ppp_dir():
     PPP_STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def generate_ppp_pdf(order: StockOrder, signature_rel_path: str | None = None):
+def generate_ppp_pdf(order: StockOrder, signature_rel_path: str | None = None, identifier: str | int | None = None):
     ensure_ppp_dir()
-    pdf_filename = f"ppp_order_{order.id}.pdf"
+    if identifier is None:
+        identifier = int(datetime.utcnow().timestamp())
+    pdf_filename = f"ppp_order_{order.id}_{identifier}.pdf"
     pdf_path = PPP_STATIC_DIR / pdf_filename
     pdf = canvas.Canvas(str(pdf_path), pagesize=A4)
     width, height = A4
@@ -154,7 +156,7 @@ def save_signature_image(order_id: int, data_url: str):
         raise ValueError("Missing signature data")
     header, _, encoded = data_url.partition(",")
     binary = base64.b64decode(encoded or data_url, validate=True)
-    max_bytes = current_app.config["SIGNATURE_MAX_BYTES"]
+    max_bytes = current_app.config.get("SIGNATURE_MAX_BYTES", 200_000)
     if len(binary) > max_bytes:
         raise ValueError("Signature too large")
     if not header.lower().startswith("data:image/png"):

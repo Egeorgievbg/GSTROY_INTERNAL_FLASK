@@ -1,87 +1,130 @@
 {% extends "base.html" %}
 
-{% block extra_styles %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
-{% endblock %}
-
 {% block content %}
-<article class="academy-article card shadow-sm border-0">
-  <div class="card-body">
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-      <span class="badge bg-info text-dark">{{ item.content_type }}</span>
-      <span class="badge bg-secondary text-light">{{ item.category or 'Общ' }}</span>
-      <span class="text-muted small ms-auto">~ {{ item.read_time_minutes or 2 }} мин</span>
-    </div>
-    <h1 class="display-6 fw-bold mb-3">{{ item.title }}</h1>
-    <div class="ratio ratio-16x9 mb-3">
-      {% set media_src = item.media_url or '' %}
-      {% if media_src %}
-        {% if media_src.startswith('http') %}
-          <iframe src="{{ media_src }}" title="{{ item.title }}" allowfullscreen></iframe>
-        {% else %}
-          <img src="{{ url_for('static', filename=media_src) }}" class="rounded-3 w-100 h-100 object-cover" alt="{{ item.title }}">
-        {% endif %}
-      {% else %}
-        <div class="bg-dark text-light d-flex align-items-center justify-content-center rounded-3">
-          <span>Няма мултимедия</span>
+<div class="article-view-container fade-in">
+    <!-- Хедър на статията -->
+    <header class="article-header">
+        <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
+            <span class="badge-category">{{ item.content_type }}</span>
+            <span class="badge-topic">{{ item.category or 'Общ' }}</span>
         </div>
-      {% endif %}
-    </div>
-    <div class="academy-content">
-      {{ item.content_html | safe }}
-    </div>
-    <div class="academy-reactions mt-4 d-flex flex-wrap align-items-center gap-2">
-      <button class="btn btn-outline-success btn-sm mark-read-btn" data-item="{{ item.id }}">
-        {% if progress and progress.is_read %}Прочетено{% else %}Маркирай като прочетено{% endif %}
-      </button>
-      <div class="d-flex gap-2 align-items-center">
-        <small class="text-muted me-2">Реакции:</small>
-        {% for emoji in ['like', 'love', 'fire'] %}
-          <button class="btn btn-sm btn-outline-secondary react-btn" data-reaction="{{ emoji }}" data-item="{{ item.id }}">
-            {{ emoji.capitalize() }}
-          </button>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-</article>
+        <h1 class="article-title">{{ item.title }}</h1>
+        <div class="article-meta">
+            <span><i class="bi bi-person"></i> от GStroy Team</span>
+            <span class="meta-divider">·</span>
+            <span><i class="bi bi-clock"></i> ~ {{ item.read_time_minutes or 2 }} мин четене</span>
+        </div>
+    </header>
 
-<div class="fixed-bottom bg-white border-top py-3 px-3 d-flex justify-content-between align-items-center shadow-sm d-lg-none">
-  <span class="fw-semibold">{{ item.title }}</span>
-  <a href="{{ url_for('academy.dashboard') }}" class="btn btn-sm btn-outline-dark">Назад към Academy</a>
+    <!-- Мултимедия -->
+    <div class="article-media">
+        {% set media_src = item.media_url or '' %}
+        {% if media_src %}
+            {% if 'youtube.com' in media_src or 'youtu.be' in media_src %}
+                <div class="ratio ratio-16x9">
+                    <iframe src="{{ media_src | replace('watch?v=', 'embed/') }}" title="{{ item.title }}" allowfullscreen></iframe>
+                </div>
+            {% else %}
+                <img src="{{ media_src if media_src.startswith('http') else url_for('static', filename=media_src) }}" alt="{{ item.title }}">
+            {% endif %}
+        {% else %}
+            <div class="no-media-placeholder">
+                <i class="bi bi-image"></i>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Съдържание на статията -->
+    <article class="article-content">
+        {{ item.content_html | safe }}
+    </article>
+
+    <!-- Разделител и действия -->
+    <hr class="article-divider">
+
+    <div class="article-actions">
+        <button class="btn-mark-read mark-read-btn" data-item="{{ item.id }}">
+            {% if progress and progress.is_read %}
+                <i class="bi bi-check-circle-fill"></i> Прочетено
+            {% else %}
+                <i class="bi bi-check-circle"></i> Маркирай като прочетено
+            {% endif %}
+        </button>
+        <div class="reactions-container">
+            <span class="reactions-label">Как се почувства?</span>
+            <div class="reactions-group">
+                <button class="reaction-btn react-btn" data-reaction="like" data-item="{{ item.id }}" data-bs-toggle="tooltip" title="Харесва ми!">👍</button>
+                <button class="reaction-btn react-btn" data-reaction="love" data-item="{{ item.id }}" data-bs-toggle="tooltip" title="Страхотно!">❤️</button>
+                <button class="reaction-btn react-btn" data-reaction="fire" data-item="{{ item.id }}" data-bs-toggle="tooltip" title="Супер полезно!">🔥</button>
+            </div>
+        </div>
+        <a href="#" class="btn-share" data-bs-toggle="tooltip" title="Сподели (скоро)">
+            <i class="bi bi-share"></i>
+        </a>
+    </div>
+</div>
+
+<!-- Мобилна лента за действия -->
+<div class="mobile-action-bar d-lg-none">
+    <a href="{{ url_for('academy.dashboard') }}" class="btn btn-sm btn-light border"><i class="bi bi-arrow-left"></i> Назад</a>
+    <button class="btn btn-sm btn-brand-new mark-read-btn" data-item="{{ item.id }}">
+        {% if progress and progress.is_read %}Прочетено{% else %}Маркирай{% endif %}
+    </button>
 </div>
 {% endblock %}
 
 {% block scripts %}
-  {{ super() }}
-  <script>
-    document.addEventListener('click', function(event) {
-      const markBtn = event.target.closest('.mark-read-btn');
-      if (markBtn) {
-        event.preventDefault();
-        fetch('{{ url_for('academy.mark_read', item_id=item.id) }}', { method: 'POST' })
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === 'success') markBtn.textContent = 'Прочетено';
-          });
-      }
-      const reactBtn = event.target.closest('.react-btn');
-      if (reactBtn) {
-        event.preventDefault();
-        const reaction = reactBtn.dataset.reaction;
-        fetch('{{ url_for('academy.react', item_id=item.id) }}', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reaction }),
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === 'success') {
-              reactBtn.classList.remove('btn-outline-secondary');
-              reactBtn.classList.add('btn-secondary');
-            }
-          });
-      }
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Активираме всички tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
     });
-  </script>
+
+    document.body.addEventListener('click', function(event) {
+        const target = event.target;
+        
+        // Маркиране като прочетено
+        const markBtn = target.closest('.mark-read-btn');
+        if (markBtn) {
+            event.preventDefault();
+            const allMarkButtons = document.querySelectorAll('.mark-read-btn[data-item="' + markBtn.dataset.item + '"]');
+            
+            fetch('{{ url_for('academy.mark_read', item_id=item.id) }}', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        allMarkButtons.forEach(btn => {
+                            if(btn.classList.contains('btn-mark-read')) {
+                                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Прочетено';
+                            } else {
+                                btn.textContent = 'Прочетено';
+                            }
+                            btn.classList.add('read');
+                        });
+                    }
+                });
+        }
+
+        // Реакции
+        const reactBtn = target.closest('.react-btn');
+        if (reactBtn) {
+            event.preventDefault();
+            const reaction = reactBtn.dataset.reaction;
+            
+            // Премахваме "active" от всички бутони за реакция и го добавяме на кликнатия
+            document.querySelectorAll('.reaction-btn').forEach(btn => btn.classList.remove('active'));
+            reactBtn.classList.add('active');
+
+            fetch('{{ url_for('academy.react', item_id=item.id) }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reaction }),
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

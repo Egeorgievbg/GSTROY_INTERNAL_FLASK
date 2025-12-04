@@ -4,6 +4,7 @@ from pathlib import Path
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     g,
     jsonify,
@@ -27,12 +28,16 @@ from constants import (
 )
 from models import (
     PPPDocument,
+    ScanEvent,
+    ScanTask,
     ScanTaskItem,
     ServicePoint,
     StockOrder,
     StockOrderAssignment,
+    StockOrderItem,
 )
 from utils import generate_ppp_pdf, save_signature_image
+from helpers import parse_float
 from app.services.order_tasks import (
     apply_inventory_movement,
     attach_service_point_sections,
@@ -53,6 +58,17 @@ from app.services.order_tasks import (
 
 
 orders_bp = Blueprint("orders", __name__)
+
+
+def _log_order_context(prefix: str, order: StockOrder, extra: str | None = None):
+    items_summary = ", ".join(
+        f"id={item.id} prepared={item.quantity_prepared:.2f} ordered={item.quantity_ordered:.2f} delivered={item.quantity_delivered:.2f}"
+        for item in order.items
+    )
+    message = f"{prefix} order={order.id} status={order.status} {items_summary}"
+    if extra:
+        message = f"{message} | {extra}"
+    current_app.logger.info(message)
 
 
 @orders_bp.route("/stock-orders", endpoint="stock_orders_dashboard")
@@ -238,6 +254,7 @@ def stock_order_prepare(order_id):
             if item.quantity_prepared >= item.quantity_ordered:
                 stats["completed"] += 1
             stats["remaining"] += item.remaining_to_prepare
+    _log_order_context("prepare-view", order)
     return render_template(
         "stock_order_prepare.html",
         order=order,
@@ -298,10 +315,12 @@ def stock_order_scan(order_id):
     update_stock_order_status(order)
     record_scan_event(task, scan_item, qty, source="stock_order", message="stock order preparation")
     session.commit()
+    _log_order_context("scan", order, extra=f"barcode={barcode} qty={qty}")
     item_data = {
         "product": product.name,
         "ordered": order_item.quantity_ordered,
         "prepared": order_item.quantity_prepared,
+        "delivered": order_item.quantity_delivered,
         "remaining": order_item.remaining_to_prepare,
         "status": order_item.preparation_status,
         "item_id": order_item.id,
@@ -344,15 +363,29 @@ def stock_order_manual(order_id):
     )
     if order_item is None:
         return jsonify({"success": False, "error": "Order item missing"}), 404
-    qty_raw = payload.get("qty")
-    try:
-        qty = float(qty_raw)
-    except (TypeError, ValueError):
-        return jsonify({"success": False, "error": "Invalid quantity"}), 400
-    if qty <= 0:
-        return jsonify({"success": False, "error": "Quantity must be positive"}), 400
-    if order_item.quantity_prepared + qty > order_item.quantity_ordered:
-        return jsonify({"success": False, "error": "Quantity exceeds order"}), 400
+    target_raw = payload.get("target_prepared")
+    new_prepared = None
+    delta = None
+    if target_raw not in (None, ""):
+        try:
+            new_prepared = float(target_raw)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "Invalid target quantity"}), 400
+        if new_prepared < 0 or new_prepared > order_item.quantity_ordered:
+            return jsonify({"success": False, "error": "Target quantity must be between 0 and ordered"}), 400
+        delta = new_prepared - order_item.quantity_prepared
+    else:
+        qty_raw = payload.get("qty")
+        try:
+            qty = float(qty_raw)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "Invalid quantity"}), 400
+        if qty <= 0:
+            return jsonify({"success": False, "error": "Quantity must be positive"}), 400
+        if order_item.quantity_prepared + qty > order_item.quantity_ordered:
+            return jsonify({"success": False, "error": "Quantity exceeds order"}), 400
+        new_prepared = order_item.quantity_prepared + qty
+        delta = qty
     task = ensure_scan_task_for_order(order, service_point_id, user)
     scan_item = next((item for item in task.items if item.product_id == order_item.product_id), None)
     if scan_item is None:
@@ -367,19 +400,27 @@ def stock_order_manual(order_id):
         g.db.add(scan_item)
         g.db.flush()
         task.items.append(scan_item)
-    order_item.quantity_prepared += qty
-    scan_item.scanned_qty = order_item.quantity_prepared
+    # ...
+    # Просто променяме стойността на вече заредения обект.
+    # SQLAlchemy ще засече тази промяна и ще я запише при commit.
+    order_item.quantity_prepared = new_prepared
+    scan_item.scanned_qty = new_prepared
+# ...
     update_scan_task_status(task)
     update_stock_order_status(order)
-    record_scan_event(task, scan_item, qty, source="manual", message="stock order manual entry")
+    record_scan_event(task, scan_item, abs(delta) if delta is not None else 0.0, source="manual", message="stock order manual entry")
     g.db.commit()
+    log_extra = f"item={order_item.id} delta={delta:.2f}" if delta is not None else f"item={order_item.id}"
+    _log_order_context("manual", order, extra=log_extra)
     item_data = {
         "item_id": order_item.id,
         "product": order_item.product.name if order_item.product else "Unknown",
         "ordered": order_item.quantity_ordered,
         "prepared": order_item.quantity_prepared,
+        "delivered": order_item.quantity_delivered,
         "remaining": order_item.remaining_to_prepare,
         "status": order_item.preparation_status,
+        "target": new_prepared,
     }
     return jsonify(
         {
@@ -398,69 +439,136 @@ def stock_order_handover(order_id):
     if order is None:
         abort(404)
     if request.method == "POST":
+        # 1. Прикачваме обекта към сесията, за да сме сигурни, че SQLAlchemy го следи.
+        session.add(order)
+
         updates = 0
+        delivered_qty = 0.0
         for item in order.items:
             key = f"deliver_{item.id}"
             raw = request.form.get(key)
             if raw in (None, "", "0"):
                 continue
-            try:
-                qty = float(raw)
-            except (TypeError, ValueError):
-                flash("Invalid delivery quantity.", "danger")
+            
+            qty = parse_float(raw)
+            if qty is None:
+                flash("Невалидно количество за доставка.", "danger")
                 return redirect(url_for("orders.stock_order_handover", order_id=order.id))
-            if qty < 0 or qty > item.remaining_to_deliver:
-                flash("Delivery qty out of range.", "danger")
+            
+            remaining = item.remaining_to_deliver
+            if qty < 0 or qty > remaining + 1e-6:
+                flash(f"Количеството за доставка ({qty}) е извън валидния диапазон (0 до {remaining}).", "danger")
                 return redirect(url_for("orders.stock_order_handover", order_id=order.id))
-            if qty == 0:
+            
+            actual_qty = min(qty, remaining)
+            if actual_qty <= 0:
                 continue
-            item.quantity_delivered += qty
+            
+            # 2. ПРОМЕНЯМЕ ДИРЕКТНО ОБЕКТА. Това е правилният ORM подход.
+            # SQLAlchemy ще "забележи" тази промяна и ще я подготви за запис.
+            item.quantity_delivered += actual_qty
+            
+            delivered_qty += actual_qty
             updates += 1
+
+        if updates == 0:
+            flash("Не са избрани артикули за предаване.", "warning")
+            return redirect(url_for("orders.stock_order_handover", order_id=order.id))
+
         recipient_name = (request.form.get("recipient_name") or "").strip()
         if recipient_name:
             order.recipient_name = recipient_name
-        if updates == 0:
-            flash("No items updated.", "warning")
+
+        signature_data = request.form.get("signature_data")
+        if not signature_data:
+            flash("Моля, предоставете подпис.", "warning")
             return redirect(url_for("orders.stock_order_handover", order_id=order.id))
+
+        try:
+            signature_rel = save_signature_image(order.id, signature_data)
+        except ValueError:
+            flash("Невалиден формат на подписа.", "danger")
+            return redirect(url_for("orders.stock_order_handover", order_id=order.id))
+
+        # 3. Обновяваме всички останали данни по поръчката.
         timestamp = datetime.utcnow()
         user_id = g.current_user.id if g.current_user else None
         order.last_handover_at = timestamp
         order.last_handover_by_id = user_id
-        signature_data = request.form.get("signature_data")
-        if not signature_data:
-            flash("Please provide a signature.", "warning")
-            return redirect(url_for("orders.stock_order_handover", order_id=order.id))
-        try:
-            signature_rel = save_signature_image(order.id, signature_data)
-        except ValueError:
-            flash("Invalid signature payload.", "danger")
-            return redirect(url_for("orders.stock_order_handover", order_id=order.id))
+        
         update_stock_order_status(order)
-        document = order.ppp_document
-        if document is None:
-            document = PPPDocument(
-                stock_order_id=order.id,
-                versus_ppp_id=f"PPP-{order.id}-{int(datetime.utcnow().timestamp())}",
-            )
-            order.ppp_document = document
-            session.add(document)
-        document.signature_image = signature_rel
-        pdf_path = generate_ppp_pdf(order, signature_rel)
-        document.pdf_url = pdf_path
+
+        update_stock_order_status(order)
+
         if order.status == "delivered":
             order.delivered_at = timestamp
             order.delivered_by_id = user_id
-        if document.status == "signed":
-            document.signed_pdf_url = pdf_path
-        else:
-            document.status = "signed"
-            document.signed_pdf_url = pdf_path
-        document.updated_at = datetime.utcnow()
+
+        # --- НАЧАЛО НА КОРЕКЦИЯТА ---
+        # Тъй като сесията не записва статуса надеждно,
+        # ние изрично ѝ казваме да го направи с директна заявка.
+        # Това ще се изпълни в същата транзакция.
+        session.query(StockOrder).filter(StockOrder.id == order.id).update(
+            {
+                "status": order.status,
+                "delivered_at": order.delivered_at,
+                "delivered_by_id": order.delivered_by_id,
+                "last_handover_at": order.last_handover_at,
+                "last_handover_by_id": order.last_handover_by_id,
+            },
+            synchronize_session=False # Важно е да е False тук!
+        )
+        # --- КРАЙ НА КОРЕКЦИЯТА ---
+
+
+        # Създаваме и свързваме ППП документа.
+        reference_key = order.external_id or str(order.id)
+        sequence = len(order.ppp_documents) + 1
+        versus_ppp_id = f"{reference_key}-{sequence:02d}"
+        identifier_suffix = timestamp.strftime("%Y%m%d%H%M%S")
+        pdf_identifier = f"{order.id}_{identifier_suffix}_draft"
+        signed_pdf_identifier = f"{order.id}_{identifier_suffix}_signed"
+        pdf_url = generate_ppp_pdf(order, identifier=pdf_identifier)
+        signed_pdf_url = generate_ppp_pdf(order, signature_rel_path=signature_rel, identifier=signed_pdf_identifier)
+
+        document = PPPDocument(
+            stock_order=order,
+            versus_ppp_id=versus_ppp_id,
+            pdf_url=pdf_url,
+            signed_pdf_url=signed_pdf_url,
+            signature_image=signature_rel,
+            status=order.status,
+        )
+        session.add(document)
         session.commit()
-        flash("Handover recorded.", "success")
+
+        flash("Предаването е записано успешно.", "success")
+        _log_order_context("handover-complete", order, extra=f"delivered_items={updates} qty={delivered_qty:.2f}")
         return redirect(url_for("orders.stock_order_handover", order_id=order.id))
+    
+    # --- Начало на GET частта на функцията ---
     attach_service_point_sections([order])
-    return render_template("stock_order_handover.html", order=order, status_labels=STOCK_ORDER_STATUS_LABELS)
+    deliverable_items = [item for item in order.items if item.remaining_to_deliver > 0]
+    deliverable_total = sum(item.remaining_to_deliver for item in deliverable_items)
+    prepared_total = sum(item.quantity_prepared for item in order.items)
+    total_ordered = sum(item.quantity_ordered for item in order.items)
+
+    # --- ТУК Е КОРЕКЦИЯТА ---
+    deliverable_hint = f"Имате {deliverable_total:.2f} артикула, готови за предаване. Проверете количествата и вземете подпис."
+    no_deliverable_hint = "Няма артикули за предаване. Ако има грешка, върнете се в екрана за подготовка."
+
+    _log_order_context("handover-view", order, extra=f"deliverable_total={deliverable_total:.2f}")
+    return render_template(
+        "stock_order_handover.html",
+        order=order,
+        status_labels=STOCK_ORDER_STATUS_LABELS,
+        deliverable_total=deliverable_total,
+        prepared_total=prepared_total,
+        total_ordered=total_ordered,
+        has_deliverable=bool(deliverable_items),
+        deliverable_hint=deliverable_hint,
+        no_deliverable_hint=no_deliverable_hint,
+    )
 
 
 @orders_bp.route("/stock-orders/<int:order_id>/ppp", endpoint="stock_order_ppp")
@@ -469,20 +577,38 @@ def stock_order_ppp(order_id):
     order = get_stock_order_with_details(order_id)
     if order is None:
         abort(404)
-    document = order.ppp_document
-    if document is None:
+    documents = sorted(
+        order.ppp_documents,
+        key=lambda doc: doc.created_at or doc.id,
+        reverse=True,
+    )
+    if not documents:
         flash("No PPP document found.", "warning")
         return redirect(url_for("orders.stock_order_handover", order_id=order.id))
-    signature_url = url_for("static", filename=document.signature_image) if document.signature_image else None
-    pdf_url = url_for("orders.stock_order_ppp_pdf", order_id=order.id) if document.pdf_url else None
-    signed_pdf_url = pdf_url
+    latest_document = documents[0]
+    signature_url = url_for("static", filename=latest_document.signature_image) if latest_document.signature_image else None
+    pdf_url = url_for("orders.stock_order_ppp_pdf", order_id=order.id, doc_id=latest_document.id) if latest_document.pdf_url else None
+    scan_tasks = (
+        session.query(ScanTask)
+        .options(
+            joinedload(ScanTask.events)
+            .joinedload(ScanEvent.item)
+            .joinedload(ScanTaskItem.product),
+            joinedload(ScanTask.items).joinedload(ScanTaskItem.product),
+            joinedload(ScanTask.created_by),
+        )
+        .filter(ScanTask.stock_order_id == order.id)
+        .order_by(ScanTask.created_at.desc())
+        .all()
+    )
     return render_template(
         "stock_order_ppp.html",
         order=order,
-        ppp=document,
+        ppp=latest_document,
         pdf_url=pdf_url,
-        signed_pdf_url=signed_pdf_url,
         signature_url=signature_url,
+        documents=documents,
+        scan_tasks=scan_tasks,
     )
 
 
@@ -500,7 +626,7 @@ def ppp_documents():
     for option in STOCK_ORDER_EAGER_OPTIONS:
         query = query.options(option)
     orders = (
-        query.filter(StockOrder.status == "delivered")
+        query.filter(StockOrder.ppp_documents.any())
         .order_by(StockOrder.updated_at.desc())
         .all()
     )
@@ -518,9 +644,20 @@ def ppp_documents():
 @orders_bp.route("/stock-orders/<int:order_id>/ppp/pdf", endpoint="stock_order_ppp_pdf")
 def stock_order_ppp_pdf(order_id):
     order = get_stock_order_with_details(order_id)
-    if order is None or order.ppp_document is None or not order.ppp_document.pdf_url:
+    if order is None:
         abort(404)
-    pdf_path = PPP_STATIC_DIR / Path(order.ppp_document.pdf_url).name
+    doc_id = request.args.get("doc_id", type=int)
+    document = None
+    if doc_id:
+        document = next((doc for doc in order.ppp_documents if doc.id == doc_id), None)
+    if document is None:
+        document = order.ppp_document
+    if document is None:
+        abort(404)
+    pdf_reference = document.signed_pdf_url or document.pdf_url
+    if not pdf_reference:
+        abort(404)
+    pdf_path = PPP_STATIC_DIR / Path(pdf_reference).name
     if not pdf_path.exists():
         abort(404)
     return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)

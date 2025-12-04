@@ -40,6 +40,7 @@ def create_app():
     app.register_blueprint(printer_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
+    app.config.setdefault("SIGNATURE_MAX_BYTES", 200_000)
     init_db()
 
     @app.before_request

@@ -163,7 +163,7 @@ STOCK_ORDER_EAGER_OPTIONS = [
     joinedload(StockOrder.items).joinedload(StockOrderItem.service_point),
     joinedload(StockOrder.assignments).joinedload(StockOrderAssignment.user),
     joinedload(StockOrder.assignments).joinedload(StockOrderAssignment.service_point),
-    joinedload(StockOrder.ppp_document),
+    joinedload(StockOrder.ppp_documents),
     joinedload(StockOrder.warehouse),
 ]
 STATUS_BADGE_CLASSES = {

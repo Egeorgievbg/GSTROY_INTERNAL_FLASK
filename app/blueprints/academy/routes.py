@@ -60,8 +60,12 @@ def dashboard():
 def view_item(item_id):
     session = g.db
     item = session.get(ContentItem, item_id)
-    if not item or not item.is_published:
-        return render_template("404.html"), 404
+    if not item or (not item.is_published and not current_user.is_admin):
+        return render_template(
+            "404.html",
+            page_title="Страницата не е достъпна",
+            message="Нямаме публикувано съдържание с това ID или го редактираме. Ако ти си админ, виж го отново след 'Preview'.",
+        ), 404
 
     progress = (
         session.query(UserContentProgress)
