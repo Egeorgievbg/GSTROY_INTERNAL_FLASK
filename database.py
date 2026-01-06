@@ -6,6 +6,8 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from werkzeug.security import generate_password_hash
 
 from models import (
+    AcademyCategory,
+    AcademyContentType,
     Base,
     Brand,
     Category,
@@ -125,6 +127,14 @@ def init_db():
     ensure_column("stock_orders", "delivered_by_id", "INTEGER")
 
     session = SessionLocal()
+
+    academy_category_defaults = ["Security", "HR", "Features", "Operations", "Logistics"]
+    if session.query(AcademyCategory).count() == 0:
+        session.add_all(AcademyCategory(name=name) for name in academy_category_defaults)
+
+    academy_content_type_defaults = ["NEWS", "GUIDE", "STORY"]
+    if session.query(AcademyContentType).count() == 0:
+        session.add_all(AcademyContentType(name=name) for name in academy_content_type_defaults)
 
     sample_products = [
         {

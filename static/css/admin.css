@@ -1041,6 +1041,22 @@
     background-color: #eff6ff;
 }
 
+.bg-purple-soft {
+    background-color: #f5e1ff;
+}
+
+.border-purple-light {
+    border-color: #e9d5ff !important;
+}
+
+.border-blue-light {
+    border-color: #bfdbfe !important;
+}
+
+.border-green-light {
+    border-color: #dcfce7 !important;
+}
+
 .icon-box-soft {
     transition: transform 0.2s;
 }
@@ -1170,4 +1186,23 @@ button,
 a,
 select {
     cursor: pointer;
+}
+/* --- ACADEMY PURPLE THEME --- */
+
+/* 1. Иконата */
+.icon-purple {
+    background: #f3e8ff; /* Светло лилаво */
+    color: #9333ea;      /* Наситено лилаво */
+}
+
+/* 2. Лентата при ховър (Accent Bar) */
+.nav-card.purple:hover::before {
+    background: #9333ea;
+}
+
+/* 3. Ако искаш специален ховър ефект за лилавите карти */
+.nav-card.purple:hover .icon-purple {
+    background: #9333ea;
+    color: #fff;
+    transform: scale(1.1) rotate(-5deg); /* Леко завъртане наобратно */
 }

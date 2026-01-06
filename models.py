@@ -627,6 +627,24 @@ class ContentItem(Base):
     progresses = relationship("UserContentProgress", back_populates="content_item", cascade="all, delete-orphan")
 
 
+class AcademyCategory(Base):
+    __tablename__ = "academy_categories"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(128), unique=True, nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AcademyContentType(Base):
+    __tablename__ = "academy_content_types"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class UserContentProgress(Base):
     __tablename__ = "user_content_progress"
 

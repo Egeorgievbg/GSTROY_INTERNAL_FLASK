@@ -22,6 +22,10 @@
     
   </head>
   <body class="d-flex flex-column h-100">
+     <!-- ✨ НОВО: Място за елементи, които трябва да са най-отгоре -->
+    {% block body_start %}{% endblock %}
+    
+
     
     <!-- 1. HEADER (Desktop) -->
     {% if current_user and current_user.is_authenticated %}
@@ -128,6 +132,13 @@
                       <div class="fw-bold text-dark">{{ current_user.full_name or current_user.username or 'User' }}</div>
                       <div class="text-muted small">{{ current_user.username }}</div>
                   </li>
+                  {% if current_user.is_admin %}
+                  <li>
+                    <a class="dropdown-item rounded-3" href="{{ url_for('admin.panel') }}">
+                      <i class="bi bi-shield-lock me-2 text-muted"></i> Админ панел
+                    </a>
+                  </li>
+                  {% endif %}
                   <li><a class="dropdown-item rounded-3" href="{{ url_for('products.import_products') }}"><i class="bi bi-cloud-upload me-2 text-muted"></i>Импорт</a></li>
                   <li>
                     <form method="post" action="{{ url_for('auth.logout') }}">

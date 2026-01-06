@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Редактор | GStroy{% endblock %}
+
+{% block extra_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <!-- QUILL CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        /* FULL SCREEN EDITOR TWEAKS */
+        .ql-toolbar.ql-snow {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            border-radius: 12px 12px 0 0;
+            position: sticky;
+            top: 0; /* Sticky toolbar */
+            z-index: 100;
+        }
+        .ql-container.ql-snow {
+            border-color: #cbd5e1;
+            border-radius: 0 0 12px 12px;
+            background: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            min-height: 60vh;
+        }
+        .ql-editor img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4 fade-in" style="max-width: 1400px; margin: 0 auto;">
+    
+    <form method="post" enctype="multipart/form-data" id="editorForm">
+        <input type="hidden" name="item_id" value="{{ edit_item.id if edit_item else '' }}">
+        
+        <!-- TOP BAR: Title & Actions -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{{ url_for('admin.academy_content') }}" class="btn-circle-glass text-dark border-secondary bg-white">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <div>
+                    <h4 class="fw-bold mb-0">{{ "Редактиране" if edit_item else "Нов материал" }}</h4>
+                    <small class="text-muted">Academy Content Editor</small>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-3 align-items-center">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="is_published" id="pubSwitch" {% if edit_item and edit_item.is_published %}checked{% endif %}>
+                    <label class="form-check-label fw-bold small text-uppercase" for="pubSwitch">Публикувай</label>
+                </div>
+                <button type="submit" class="btn-brand-glow px-4">
+                    <i class="bi bi-cloud-check me-2"></i>Запази
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- LEFT: META DATA -->
+            <div class="col-lg-4 col-xl-3">
+                <div class="admin-card">
+                    <h6 class="fw-bold text-uppercase text-muted small mb-3">Настройки</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label-top">Категория</label>
+                        <select name="category" class="form-select bg-light border-0 fw-bold py-2">
+                            <option value="">Без категория</option>
+                            {% for cat in categories %}
+                                <option value="{{ cat }}" {% if edit_item and edit_item.category == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label-top">Тип</label>
+                        <select name="content_type" class="form-select bg-light border-0 fw-bold py-2">
+                            {% for ct in content_types %}
+                                <option value="{{ ct }}" {% if edit_item and edit_item.content_type == ct %}selected{% endif %}>{{ ct }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label-top">Cover Снимка (Thumbnail)</label>
+                        <div class="input-surface mb-2">
+                            <i class="bi bi-link surface-icon"></i>
+                            <input name="media_url" class="surface-input" value="{{ edit_item.media_url if edit_item else '' }}" placeholder="URL...">
+                        </div>
+                        <small class="text-muted d-block text-center mb-1">- или -</small>
+                        <input type="file" name="media_file" class="form-control form-control-sm">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label-top">Резюме (SEO)</label>
+                        <textarea name="summary" class="form-control bg-light border-0" rows="4" placeholder="Кратко описание...">{{ edit_item.summary if edit_item else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: MAIN CONTENT -->
+            <div class="col-lg-8 col-xl-9">
+                <!-- Title Input (Huge) -->
+                <input type="text" name="title" class="form-control form-control-lg border-0 bg-transparent fs-1 fw-bold mb-3 px-0" 
+                       placeholder="Въведете заглавие тук..." 
+                       value="{{ edit_item.title if edit_item else '' }}" required>
+                
+                <!-- EDITOR CONTAINER -->
+                <div id="quill-editor"></div>
+                
+                <!-- Hidden input to store HTML -->
+                <textarea name="content_html" id="hiddenHtml" style="display:none;"></textarea>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // 1. CONFIGURATION (Full Toolbar)
+    const toolbarOptions = [
+        [{ 'header': [2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
+        ['blockquote', 'code-block'],
+        [{ 'color': [] }, { 'background': [] }],          // dropdown with defaults from theme
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'align': [] }],
+        ['link', 'image', 'video'],                       // Media
+        ['clean']                                         // remove formatting
+    ];
+
+    var quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        modules: {
+            toolbar: {
+                container: toolbarOptions,
+                handlers: {
+                    // Custom Image Handler
+                    'image': imageHandler
+                }
+            }
+        },
+        placeholder: 'Започнете да пишете своята история...'
+    });
+
+    // 2. IMAGE HANDLER (Upload to Server)
+    function imageHandler() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+
+        input.onchange = async () => {
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // Save current cursor position
+            const range = quill.getSelection(true);
+
+            // Upload to API
+            try {
+                const response = await fetch('/admin/academy/upload-image', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.url) {
+                    // Insert image at cursor
+                    quill.insertEmbed(range.index, 'image', data.url);
+                    // Move cursor after image
+                    quill.setSelection(range.index + 1);
+                } else {
+                    alert('Грешка при качване: ' + (data.error || 'Unknown'));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Неуспешна връзка със сървъра.');
+            }
+        };
+    }
+
+    // 3. LOAD CONTENT
+    const initialContent = `{{ edit_item.content_html | safe if edit_item else '' }}`;
+    if (initialContent) {
+        quill.clipboard.dangerouslyPasteHTML(initialContent);
+    }
+
+    // 4. SUBMIT FORM
+    document.getElementById('editorForm').onsubmit = function() {
+        document.getElementById('hiddenHtml').value = quill.root.innerHTML;
+    };
+});
+</script>
+{% endblock %}

@@ -71,7 +71,7 @@ This repository houses a Flask-based stock-order fulfillment simulator with PPP 
 
 - `printer_service/` simulates an external label server, showcasing how list/product labels could be sent.
 - The academy blueprint builds knowledge base, push notifications, and progressive reading tracking via `UserContentProgress`.
-- Admin templates (`templates/admin_academy.html`, `templates/admin_panel.html`) expose quick insights and controls (academy pushes, PPP stats, scanning dashboards).
+- Admin templates (`templates/admin/academy_list.html`, `templates/admin/academy_editor.html`, `templates/admin_panel.html`) expose quick insights and controls (academy pushes, PPP stats, scanning dashboards).
 
 ## Local setup
 

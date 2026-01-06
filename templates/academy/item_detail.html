@@ -1,130 +1,211 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="article-view-container fade-in">
-    <!-- Хедър на статията -->
-    <header class="article-header">
-        <div class="d-flex align-items-center justify-content-center gap-2 mb-3">
-            <span class="badge-category">{{ item.content_type }}</span>
-            <span class="badge-topic">{{ item.category or 'Общ' }}</span>
-        </div>
-        <h1 class="article-title">{{ item.title }}</h1>
-        <div class="article-meta">
-            <span><i class="bi bi-person"></i> от GStroy Team</span>
-            <span class="meta-divider">·</span>
-            <span><i class="bi bi-clock"></i> ~ {{ item.read_time_minutes or 2 }} мин четене</span>
-        </div>
-    </header>
+{% block extra_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% endblock %}
 
-    <!-- Мултимедия -->
-    <div class="article-media">
+{% block body_start %}
+    <!-- Скрол индикатор -->
+    <div class="scroll-progress-container">
+        <div class="scroll-progress-bar" id="readingProgress"></div>
+    </div>
+{% endblock %}
+
+{% block content %}
+<div class="article-view-wrapper fade-in">
+    
+    <!-- Hero Header -->
+    <header class="hero-wrapper">
+    <!-- 1. Background Image Layer -->
+    <div class="hero-image-container">
         {% set media_src = item.media_url or '' %}
         {% if media_src %}
-            {% if 'youtube.com' in media_src or 'youtu.be' in media_src %}
-                <div class="ratio ratio-16x9">
-                    <iframe src="{{ media_src | replace('watch?v=', 'embed/') }}" title="{{ item.title }}" allowfullscreen></iframe>
-                </div>
-            {% else %}
-                <img src="{{ media_src if media_src.startswith('http') else url_for('static', filename=media_src) }}" alt="{{ item.title }}">
-            {% endif %}
+            <!-- Слагаме снимката като background-image за по-лесно центриране -->
+            <div class="hero-bg" style="background-image: url('{{ media_src if media_src.startswith('http') else url_for('static', filename=media_src) }}');"></div>
         {% else %}
-            <div class="no-media-placeholder">
-                <i class="bi bi-image"></i>
-            </div>
+            <div class="hero-bg placeholder-bg"></div>
         {% endif %}
+        <!-- Градиент, за да се вижда стъклото по-добре -->
+        <div class="hero-overlay"></div>
     </div>
 
-    <!-- Съдържание на статията -->
+    <!-- 2. The Glass Card (Floating) -->
+    <div class="container hero-content-container">
+        <div class="glass-header-card fade-in-up">
+            
+            <!-- Category & Status Row -->
+            <div class="d-flex justify-content-between align-items-center w-100 mb-3">
+                <span class="badge-category">
+                    <i class="bi bi-folder2-open me-1"></i> {{ item.category|default('Обучение')|upper }}
+                </span>
+                
+                <!-- Тук може да покажем статус (напр. колко хора са го чели) -->
+                <div class="social-proof">
+                    <i class="bi bi-eye-fill text-muted me-1"></i>
+                    <span class="small text-muted">Прегледано от екипа</span>
+                </div>
+            </div>
+
+            <!-- Main Title -->
+            <h1 class="hero-title">{{ item.title }}</h1>
+
+            <!-- Meta Data Grid -->
+            <div class="meta-grid">
+                <!-- Author -->
+                <div class="meta-box">
+                    <div class="meta-icon bg-blue">
+                        <span class="initials">GS</span>
+                    </div>
+                    <div class="meta-info">
+                        <span class="label">Автор</span>
+                        <span class="value">GStroy Team</span>
+                    </div>
+                </div>
+
+                <!-- Date -->
+                <div class="meta-box">
+                    <div class="meta-icon bg-green">
+                        <i class="bi bi-calendar-event"></i>
+                    </div>
+                    <div class="meta-info">
+                        <span class="label">Дата</span>
+                        <span class="value">{{ item.created_at.strftime('%d.%m.%Y') if item.created_at else 'Сега' }}</span>
+                    </div>
+                </div>
+
+                <!-- Time -->
+                <div class="meta-box">
+                    <div class="meta-icon bg-orange">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div class="meta-info">
+                        <span class="label">Време</span>
+                        <span class="value">~{{ item.read_time_minutes or 3 }} мин.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <!-- Content Body (Свит за по-добро четене) -->
     <article class="article-content">
         {{ item.content_html | safe }}
     </article>
 
-    <!-- Разделител и действия -->
-    <hr class="article-divider">
+    <!-- Footer Space -->
+    <div style="height: 120px;"></div>
+</div>
 
-    <div class="article-actions">
-        <button class="btn-mark-read mark-read-btn" data-item="{{ item.id }}">
+<!-- FLOATING ACTION BAR (Fixed Bottom) -->
+<div class="article-actions-bar">
+    <div class="action-container glass-effect">
+        <!-- Back Button -->
+        <a href="{{ url_for('academy.dashboard') }}" class="action-btn icon-only" title="Назад към таблото">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        
+        <div class="divider-vertical"></div>
+
+        <!-- Reactions -->
+        <div class="reactions-group">
+            <button class="reaction-btn {% if progress and progress.reaction == 'like' %}active{% endif %}" onclick="sendReaction({{ item.id }}, 'like', this)">👍</button>
+            <button class="reaction-btn {% if progress and progress.reaction == 'love' %}active{% endif %}" onclick="sendReaction({{ item.id }}, 'love', this)">❤️</button>
+            <button class="reaction-btn {% if progress and progress.reaction == 'fire' %}active{% endif %}" onclick="sendReaction({{ item.id }}, 'fire', this)">🔥</button>
+        </div>
+
+        <div class="divider-vertical"></div>
+
+        <!-- Mark as Read Button -->
+        <button id="markReadBtn" 
+                class="action-btn mark-read {% if progress and progress.is_read %}read{% endif %}" 
+                onclick="markAsRead({{ item.id }})">
             {% if progress and progress.is_read %}
-                <i class="bi bi-check-circle-fill"></i> Прочетено
+                <i class="bi bi-check-circle-fill"></i> <span>Прочетено</span>
             {% else %}
-                <i class="bi bi-check-circle"></i> Маркирай като прочетено
+                <i class="bi bi-check-circle"></i> <span>Маркирай</span>
             {% endif %}
         </button>
-        <div class="reactions-container">
-            <span class="reactions-label">Как се почувства?</span>
-            <div class="reactions-group">
-                <button class="reaction-btn react-btn" data-reaction="like" data-item="{{ item.id }}" data-bs-toggle="tooltip" title="Харесва ми!">👍</button>
-                <button class="reaction-btn react-btn" data-reaction="love" data-item="{{ item.id }}" data-bs-toggle="tooltip" title="Страхотно!">❤️</button>
-                <button class="reaction-btn react-btn" data-reaction="fire" data-item="{{ item.id }}" data-bs-toggle="tooltip" title="Супер полезно!">🔥</button>
-            </div>
-        </div>
-        <a href="#" class="btn-share" data-bs-toggle="tooltip" title="Сподели (скоро)">
-            <i class="bi bi-share"></i>
-        </a>
     </div>
 </div>
 
-<!-- Мобилна лента за действия -->
-<div class="mobile-action-bar d-lg-none">
-    <a href="{{ url_for('academy.dashboard') }}" class="btn btn-sm btn-light border"><i class="bi bi-arrow-left"></i> Назад</a>
-    <button class="btn btn-sm btn-brand-new mark-read-btn" data-item="{{ item.id }}">
-        {% if progress and progress.is_read %}Прочетено{% else %}Маркирай{% endif %}
-    </button>
-</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // Активираме всички tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
+    // 1. SCROLL PROGRESS
+    window.addEventListener('scroll', () => {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById("readingProgress").style.width = scrolled + "%";
     });
 
-    document.body.addEventListener('click', function(event) {
-        const target = event.target;
+    // 2. API LOGIC (Свързване с Python бекенда)
+    
+    // Функция за маркиране като прочетено
+    async function markAsRead(itemId) {
+        const btn = document.getElementById('markReadBtn');
+        if (btn.classList.contains('read')) return; // Вече е прочетено
+
+        // UI Optimistic Update (Веднага показваме, че е станало)
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
         
-        // Маркиране като прочетено
-        const markBtn = target.closest('.mark-read-btn');
-        if (markBtn) {
-            event.preventDefault();
-            const allMarkButtons = document.querySelectorAll('.mark-read-btn[data-item="' + markBtn.dataset.item + '"]');
-            
-            fetch('{{ url_for('academy.mark_read', item_id=item.id) }}', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        allMarkButtons.forEach(btn => {
-                            if(btn.classList.contains('btn-mark-read')) {
-                                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Прочетено';
-                            } else {
-                                btn.textContent = 'Прочетено';
-                            }
-                            btn.classList.add('read');
-                        });
-                    }
-                });
+        try {
+            const response = await fetch(`/academy/api/mark-read/${itemId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                btn.classList.add('read');
+                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> <span>Прочетено</span>';
+                
+                // Конфети ефект (по желание, може да се махне)
+                triggerConfetti(btn); 
+            } else {
+                btn.innerHTML = originalContent;
+                alert('Възникна грешка. Моля опитайте отново.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            btn.innerHTML = originalContent;
         }
+    }
 
-        // Реакции
-        const reactBtn = target.closest('.react-btn');
-        if (reactBtn) {
-            event.preventDefault();
-            const reaction = reactBtn.dataset.reaction;
-            
-            // Премахваме "active" от всички бутони за реакция и го добавяме на кликнатия
-            document.querySelectorAll('.reaction-btn').forEach(btn => btn.classList.remove('active'));
-            reactBtn.classList.add('active');
+    // Функция за реакции
+    async function sendReaction(itemId, type, btnElement) {
+        // Махаме активния клас от другите
+        document.querySelectorAll('.reaction-btn').forEach(b => b.classList.remove('active'));
+        // Слагаме на текущия
+        btnElement.classList.add('active');
+        
+        // Лека анимация на бутона
+        btnElement.style.transform = "scale(1.4)";
+        setTimeout(() => btnElement.style.transform = "scale(1)", 200);
 
-            fetch('{{ url_for('academy.react', item_id=item.id) }}', {
+        try {
+            await fetch(`/academy/api/react/${itemId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reaction }),
+                body: JSON.stringify({ reaction: type })
             });
+            // Няма нужда да чакаме отговор за UI-a, нека е "snappy"
+        } catch (error) {
+            console.error('Error reacting:', error);
         }
-    });
-});
+    }
+
+    function triggerConfetti(element) {
+        // Опционално: Тук може да добавиш JS библиотека за конфети,
+        // но засега просто ще направим пулсация
+        element.style.animation = "pulse-green 0.5s ease-in-out";
+    }
+
 </script>
 {% endblock %}

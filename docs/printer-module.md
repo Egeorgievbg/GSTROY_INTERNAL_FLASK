@@ -1,27 +1,45 @@
-# Принтер модул (printer_service)
+# Printer Module / Service
 
-`printer_service` е независим blueprint под `/printer-hub`. Работи като proxy между фронт-енд заявките (`/product_detail`, `/pallet_detail`) и вътрешния label server.
+Printer module (`printer_service`) симулира интерфейс към външен label server. Идеята е да се демонстрира как се извиква REST API, как се форматират payload-и и как се обработват грешки без реален хардуер.
+
+## Структура
+
+- `printer_service/__init__.py`: Blueprint `printer_bp` с префикс `/printer-hub`.
+- Зависимости: `models.Printer`, `models.User`, Flask `Blueprint`, `login_required`, `urllib.request`.
+- Конфигурация:
+  - `ERP_LABEL_SERVER_TIMEOUT` и `ERP_LABEL_STATUS_TIMEOUT` за http таймаути.
+  - `PRINTER_SERVER_URL` може да се зададе per warehouse или per printer.
 
 ## Основни функции
 
-1. **Маршрути**  
-   - `POST /printer-hub/print-product`: приема `printer_id`, продуктово име/баркод, количество и копия, и изпраща заявка към label server (`printers/{ip}/print-product-label`).  
-   - `POST /printer-hub/print-list`: същото, но за списъци/QR кодове (`print-list-label`).
+### `_printer_server(printer)`
+Отговаря за трансформирането на адреса на принтера в пълен HTTP URL (добавя `http://`, премахва `/`, пада към warehouse нивото ако няма директен `server_url`).
 
-2. **Сигурност и scope**  
-   - `@login_required` гарантира, че само оторизирани потребители могат да ползват принтерите.
-   - `_user_warehouse_id()` проверява дали потребителят е присвоен към склад и позволява само неговите принтери.
-   - `_sanitize_text` почиства имени, QR данни и баркодове, `_clamp_copies` ограничава до 50 копия.
+### `_send_label_request(printer, endpoint, payload)`
+1. Строи URL към външния сървър (`base/endpoint`).
+2. JSON сериализира payload и го изпраща (timeout).
+3. Обработва `HTTPError` и `URLError`, връща валидация към caller.
 
-3. **Доставяне към label server**  
-   - `_send_label_request` строи URL от `printer.server_url` или принтерския склад, добавя JSON payload и timeout (env `ERP_LABEL_SERVER_TIMEOUT`).
-   - Връща JSON `{"ok": true, "message": ...}` или error код 502 при проблем.
+### `_sanitize_text` и `_clamp_copies`
+Помощни функции:
+- `_sanitize_text`: премахва опасни символи (`^`, `~`, newline) и ограничава дължината, за да не се счупи принтерът.
+- `_clamp_copies`: гарантира, че бройката е между 1 и max (по подразбиране 50).
 
-4. **Статус**  
-   - `/printers/{ip}/status` се ползва от `admin_printers` за проверка дали принтерите са онлайн.
+## Роутове
 
-## Деплой и конфигурация
+| Роут | Метод | Функция |
+|------|-------|--------|
+| `/printer-hub/print-product` | POST | Приема `name`, `barcode`, `cop ies`, `quantity`. Проверява достъп (потребителят е login и принтерът принадлежит на същия warehouse). Изпраща `_send_label_request` към принтер. |
+| `/printer-hub/print-list` | POST | Приема `name`, `qr_data`, `copies`. Също се валидира, извиква `_send_label_request`. |
+| `/printer-hub/status` (helper) | GET (вътрешно)| Може да се добави за проверка на състояние на принтера (използва `urllib.request`). |
 
-- Настройте `Printer.server_url` или `Warehouse.printer_server_url`, за да сочи към label server (`http://labels.gstroy.local` например).
-- Уверете се, че label server поддържа endpoint `printers/<ip>/print-product-label` и връща JSON `{ "message": "Queued" }`.
-- `printer_service` няма зависимости извън `Flask`/`requests` (използваме стандартен `urllib.request`).
+## Защо е важен модулът?
+
+1. Показа пример как да се интегрира с REST API при принтер, без да е необходим реален хардуер.
+2. Демонстрира добри практики – таймаути, означения, обработка на грешки и формиране на payload.
+3. Помага на фронт енда да изпраща заявки и да показва статус (flash съобщения).
+
+Когато портваш към Django:
+ - Превърни blueprint-а в Django `app`, със `urls.py` и класови гледки.
+ - Модулът е подходящ за отделно Django management console за принтери.
+ - Същите помощни функции `_sanitize_text` и `_clamp_copies` могат да живеят в `services/printer.py`.

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Academy Списък | GStroy{% endblock %}
+
+{% block extra_styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4 fade-in" style="max-width: 1600px; margin: 0 auto;">
+
+    <!-- HEADER -->
+    <div class="admin-hero-card">
+        <div class="hero-content">
+            <span class="hero-subtitle">CONTENT MANAGEMENT</span>
+            <h1 class="hero-title-large">Academy Библиотека</h1>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+             <!-- БУТОН ЗА НОВ МАТЕРИАЛ -> ВОДИ КЪМ ЕДИТОРА -->
+            <a href="{{ url_for('admin.academy_content', new=1) }}" class="btn-brand-glow text-decoration-none">
+                <i class="bi bi-plus-lg me-2"></i>Нов материал
+            </a>
+        </div>
+    </div>
+
+    <!-- PUSH & FILTERS BAR -->
+    <div class="row g-4 mb-4">
+        <!-- Search & Filter -->
+        <div class="col-lg-8">
+            <div class="admin-card p-3 d-flex gap-3 align-items-center h-100">
+                <div class="input-surface flex-grow-1">
+                    <i class="bi bi-search surface-icon"></i>
+                    <input type="text" id="searchInput" class="surface-input" placeholder="Търсене по заглавие...">
+                </div>
+                <select class="form-select w-auto border-0 bg-light fw-bold" style="cursor: pointer;">
+                    <option value="all">Всички типове</option>
+                    <option value="GUIDE">Guide</option>
+                    <option value="NEWS">News</option>
+                    <option value="STORY">Story</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- COMPACT PUSH PANEL -->
+        <div class="col-lg-4">
+            <div class="admin-card p-3 h-100 d-flex align-items-center gap-3" style="background: #fffbeb; border-color: #fcd34d;">
+                <div class="bg-warning bg-opacity-25 p-2 rounded text-warning">
+                    <i class="bi bi-bell-fill fs-5"></i>
+                </div>
+                <form method="post" action="{{ url_for('admin.academy_push') }}" class="d-flex flex-grow-1 gap-2">
+                    <select name="push_item_id" class="form-select form-select-sm border-warning bg-transparent">
+                        <option value="">📢 Избери материал за Push...</option>
+                        {% for item in items %}
+                            {% if item.is_published %}
+                                <option value="{{ item.id }}">{{ item.title|truncate(30) }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-warning text-dark fw-bold px-3">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLE LIST -->
+    <div class="admin-card p-0 overflow-hidden">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+                <tr>
+                    <th class="ps-4 py-3 text-muted text-uppercase small">Заглавие</th>
+                    <th class="py-3 text-muted text-uppercase small">Тип</th>
+                    <th class="py-3 text-muted text-uppercase small">Статус</th>
+                    <th class="py-3 text-muted text-uppercase small">Stats</th>
+                    <th class="py-3 text-muted text-uppercase small text-end pe-4">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="contentTable">
+                {% for item in items %}
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <!-- Thumb -->
+                            <div class="rounded bg-light d-flex align-items-center justify-content-center border" style="width: 48px; height: 48px; overflow: hidden;">
+                                {% if item.media_url %}
+                                    {% set thumb_url = item.media_url %}
+                                    {% if not thumb_url.startswith('http') and not thumb_url.startswith('/') %}
+                                        {% set thumb_url = url_for('static', filename=thumb_url) %}
+                                    {% endif %}
+                                    <img src="{{ thumb_url }}" style="width:100%; height:100%; object-fit:cover;">
+                                {% else %}
+                                    <i class="bi bi-image text-muted opacity-50"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-dark">{{ item.title }}</h6>
+                                <small class="text-muted">{{ item.category or 'No category' }} &bull; {{ item.created_at.strftime('%d.%m.%Y') }}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if item.content_type == 'STORY' %}
+                            <span class="badge bg-purple-soft border border-purple-light">Story</span>
+                        {% elif item.content_type == 'NEWS' %}
+                            <span class="badge bg-blue-soft border border-blue-light">News</span>
+                        {% else %}
+                            <span class="badge bg-green-soft border border-green-light">Guide</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.is_published %}
+                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">Draft</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-3 text-muted small">
+                            <span title="Преглеждания"><i class="bi bi-eye"></i> {{ stats.get(item.id, 0) }}</span>
+                            <span title="Likes"><i class="bi bi-heart"></i> {{ reactions.get(item.id, {}).values()|sum }}</span>
+                        </div>
+                    </td>
+                    <td class="text-end pe-4">
+                        <a href="{{ url_for('admin.academy_content', edit=item.id) }}" class="btn btn-sm btn-light border me-1" title="Редактирай">
+                            <i class="bi bi-pencil-fill"></i>
+                        </a>
+                        <a href="{{ url_for('academy.view_item', item_id=item.id) }}" target="_blank" class="btn btn-sm btn-light border me-1" title="Преглед">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <form method="post" action="{{ url_for('admin.delete_academy_item', item_id=item.id) }}" class="d-inline" onsubmit="return confirm('Delete?');">
+                            <button class="btn btn-sm btn-light border text-danger" title="Изтрий"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Simple Search Script -->
+<script>
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    let filter = this.value.toLowerCase();
+    let rows = document.querySelectorAll('#contentTable tr');
+    rows.forEach(row => {
+        let text = row.innerText.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

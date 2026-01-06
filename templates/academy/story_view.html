@@ -1,32 +1,136 @@
 {% extends "base.html" %}
 
+{% block title %}{{ item.title }}{% endblock %}
+
 {% block extra_styles %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
 {% endblock %}
 
+<!-- Скриваме стандартния хедър и менюта за Story режима -->
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
 {% block content %}
-<div class="story-shell">
-  <div class="story-top-bar">
-    <div class="progress story-progress">
-      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%;"></div>
-    </div>
-    <a href="{{ url_for('academy.dashboard') }}" class="close-story"><i class="bi bi-x-lg"></i></a>
-  </div>
-  <div class="story-content">
-    {% set media_src = item.media_url or '' %}
-    {% if media_src %}
-      {% if media_src.startswith('http') %}
-        <div class="ratio ratio-9x16">
-          <iframe src="{{ media_src }}" title="{{ item.title }}" allowfullscreen></iframe>
+<div class="story-fullscreen-wrapper">
+    
+    <!-- 1. BLURRED BACKGROUND (Атмосфера) -->
+    {% set media_src = item.media_url or 'images/placeholder_story.jpg' %}
+    {% set resolved_src = media_src if media_src.startswith('http') else url_for('static', filename=media_src) %}
+    
+    <div class="story-blur-bg" style="background-image: url('{{ resolved_src }}');"></div>
+    <div class="story-overlay-gradient"></div>
+
+    <!-- 2. UI LAYER (Header & Progress) -->
+    <div class="story-ui-top">
+        <div class="progress-container">
+            <!-- Тук JS ще пълни бара -->
+            <div class="story-progress-bar" id="storyProgress"></div>
         </div>
-      {% else %}
-        <img src="{{ url_for('static', filename=media_src) }}" alt="{{ item.title }}">
-      {% endif %}
-    {% endif %}
-    <div class="text-center mt-3">
-      <h3 class="text-white fw-bold">{{ item.title }}</h3>
-      <p class="text-white-50">{{ item.summary }}</p>
+        
+        <div class="story-header-row">
+            <div class="d-flex align-items-center gap-2">
+                <div class="story-author-avatar">GS</div>
+                <div class="story-meta">
+                    <span class="author-name">GStroy Academy</span>
+                    <span class="post-time">~{{ item.read_time_minutes or 1 }} мин.</span>
+                </div>
+            </div>
+            <!-- Close Button -->
+            <a href="{{ url_for('academy.dashboard') }}" class="story-close-btn">
+                <i class="bi bi-x-lg"></i>
+            </a>
+        </div>
     </div>
-  </div>
+
+    <!-- 3. CONTENT LAYER (Снимка или Видео) -->
+    <div class="story-media-container">
+        <img src="{{ resolved_src }}" alt="{{ item.title }}" class="story-main-image">
+    </div>
+
+    <!-- 4. CAPTION LAYER (Текст долу) -->
+    <div class="story-caption-area">
+        <h2 class="story-title">{{ item.title }}</h2>
+        <p class="story-summary">{{ item.summary }}</p>
+        
+        <!-- Action Buttons -->
+        <div class="story-actions mt-3">
+             <button class="story-btn-icon" onclick="toggleReaction(this, {{ item.id }})">
+                <i class="bi bi-heart"></i>
+             </button>
+             <a href="{{ url_for('academy.view_item', item_id=item.id) }}" class="story-btn-read">
+                Виж детайли <i class="bi bi-arrow-right"></i>
+             </a>
+        </div>
+    </div>
+
+    <!-- 5. TAP ZONES (За навигация) -->
+    <div class="tap-zone left" onclick="pauseStory()"></div> <!-- Засега само пауза -->
+    <div class="tap-zone right" onclick="finishStory()"></div> <!-- Скип напред -->
+
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBar = document.getElementById('storyProgress');
+    const duration = 10000; // 10 секунди времетраене
+    let startTime = Date.now();
+    let isPaused = false;
+    let itemId = {{ item.id }};
+    
+    // Анимация на бара
+    function updateProgress() {
+        if (isPaused) {
+            startTime += 16; // Добавяме време, за да не мърда бара
+        } else {
+            let elapsed = Date.now() - startTime;
+            let percentage = (elapsed / duration) * 100;
+            
+            if (percentage >= 100) {
+                progressBar.style.width = '100%';
+                finishStory(); // Край на сторито
+                return;
+            }
+            progressBar.style.width = percentage + '%';
+        }
+        requestAnimationFrame(updateProgress);
+    }
+    
+    requestAnimationFrame(updateProgress);
+
+    // Пауза при задържане (Desktop/Mobile)
+    const wrapper = document.querySelector('.story-fullscreen-wrapper');
+    
+    wrapper.addEventListener('mousedown', () => isPaused = true);
+    wrapper.addEventListener('mouseup', () => isPaused = false);
+    wrapper.addEventListener('touchstart', () => isPaused = true);
+    wrapper.addEventListener('touchend', () => isPaused = false);
+
+    // Функция за приключване
+    window.finishStory = function() {
+        // 1. Маркираме като прочетено през API
+        fetch(`/academy/api/mark-read/${itemId}`, { method: 'POST' });
+        
+        // 2. Връщаме се в дашборда
+        window.location.href = "{{ url_for('academy.dashboard') }}";
+    };
+
+    window.pauseStory = function() {
+        // Просто dummy функция, паузата се хваща от touchstart по-горе
+    };
+    
+    // Реакция (Сърце)
+    window.toggleReaction = function(btn, id) {
+        btn.classList.toggle('active');
+        const icon = btn.querySelector('i');
+        if(btn.classList.contains('active')) {
+            icon.classList.remove('bi-heart');
+            icon.classList.add('bi-heart-fill');
+            // Тук може да викнеш API за like
+        } else {
+            icon.classList.add('bi-heart');
+            icon.classList.remove('bi-heart-fill');
+        }
+    };
+});
+</script>
 {% endblock %}

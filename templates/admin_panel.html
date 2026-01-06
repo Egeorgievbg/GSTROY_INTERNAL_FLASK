@@ -9,7 +9,7 @@
 {% block content %}
 <div class="container-fluid px-4 py-4 fade-in" style="max-width: 1600px; margin: 0 auto;">
 
-    <!-- 1. DASHBOARD HERO -->
+    <!-- 1. DASHBOARD HERO (Без промяна - перфектен е) -->
     <div class="dashboard-hero">
         <div class="hero-text-content">
             <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill border border-light border-opacity-25 bg-white bg-opacity-10 text-white mb-3" style="font-size: 0.75rem; font-weight: 700;">
@@ -17,19 +17,15 @@
             </div>
             <h1 class="hero-welcome">Здравейте, Администратор</h1>
             <p class="hero-desc">
-                Пълен контрол над екосистемата на GStroy. Управлявайте потребители, 
-                следете ERP синхронизациите и редактирайте продуктовия каталог в реално време.
+                Пълен контрол над екосистемата на GStroy. Следете метриките в реално време.
             </p>
             
             <div class="d-flex gap-3 flex-wrap">
                 <a href="{{ url_for('admin.users_panel') }}" class="btn-glass-hero primary">
                     <i class="bi bi-person-plus-fill"></i> Нов потребител
                 </a>
-                <a href="{{ url_for('admin.erp_panel') }}" class="btn-glass-hero">
-                    <i class="bi bi-arrow-repeat"></i> ERP Sync
-                </a>
                 <a href="{{ url_for('admin.academy_content') }}" class="btn-glass-hero">
-                    <i class="bi bi-mortarboard"></i> Управление на Academy
+                    <i class="bi bi-pencil-square"></i> Публикувай в Academy
                 </a>
             </div>
         </div>
@@ -46,15 +42,15 @@
                 <span class="stat-glass-val">{{ stats.users_count|default('0') }}</span>
             </div>
             <div class="stat-glass">
-                <span class="stat-glass-label">Продукти</span>
-                <span class="stat-glass-val">{{ stats.products_count|default('0') }}</span>
+                <span class="stat-glass-label">Статии</span>
+                <span class="stat-glass-val">{{ stats.academy_count|default('0') }}</span>
             </div>
         </div>
     </div>
 
-    <!-- 2. SECTION: DATA & CATALOG -->
+    <!-- 2. КАТАЛОГ И ДАННИ (Зелени карти) -->
     <div class="section-divider">
-        <i class="bi bi-database-fill text-success"></i> Каталог и Данни
+        <i class="bi bi-database-fill text-success"></i> Каталог и Продукти
     </div>
     
     <div class="dash-grid">
@@ -64,7 +60,7 @@
             </div>
             <div class="nav-content">
                 <h3>Продуктов Каталог</h3>
-                <p>Управление на артикули, цени, наличности, описания и снимки.</p>
+                <p>Артикули, цени, наличности и снимки.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
@@ -75,7 +71,7 @@
             </div>
             <div class="nav-content">
                 <h3>Категории</h3>
-                <p>Структуриране на дървото с категории и подкатегории.</p>
+                <p>Структура на дървото с категории.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
@@ -86,15 +82,15 @@
             </div>
             <div class="nav-content">
                 <h3>Брандове</h3>
-                <p>Управление на производители и свързване с продукти.</p>
+                <p>Производители и доставчици.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
     </div>
 
-    <!-- 3. SECTION: USERS & ACCESS -->
+    <!-- 3. ЕКИП И ДОСТЪП (Сини карти) -->
     <div class="section-divider">
-        <i class="bi bi-people-fill text-primary"></i> Екип и Достъп
+        <i class="bi bi-people-fill text-primary"></i> Екип и Сигурност
     </div>
 
     <div class="dash-grid">
@@ -104,29 +100,18 @@
             </div>
             <div class="nav-content">
                 <h3>Потребители</h3>
-                <p>Списък на служителите, промяна на роли и нулиране на пароли.</p>
+                <p>Служители, пароли и профили.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
 
         <a href="{{ url_for('admin.roles_panel') }}" class="nav-card blue">
             <div class="nav-icon icon-blue">
-                <i class="bi bi-card-checklist"></i>
-            </div>
-            <div class="nav-content">
-                <h3>Роли</h3>
-                <p>Управлявай списъка с роли, които могат да се присвояват на служителите.</p>
-            </div>
-            <i class="bi bi-arrow-right nav-arrow"></i>
-        </a>
-
-        <a href="#" class="nav-card blue">
-            <div class="nav-icon icon-blue">
                 <i class="bi bi-shield-check"></i>
             </div>
             <div class="nav-content">
-                <h3>Права и Роли</h3>
-                <p>Конфигурация на достъпа до модули (Склад, Магазин, Админ).</p>
+                <h3>Роли и Права</h3>
+                <p>Конфигурация на достъпа до модули.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
@@ -136,16 +121,16 @@
                 <i class="bi bi-activity"></i>
             </div>
             <div class="nav-content">
-                <h3>Активност</h3>
-                <p>Лог на действията на потребителите и история на влизанията.</p>
+                <h3>Активност (Log)</h3>
+                <p>История на влизанията и действията.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
     </div>
 
-    <!-- 4. SECTION: SYSTEM -->
+    <!-- 4. ОПЕРАЦИИ И СИСТЕМИ (Оранжеви карти) -->
     <div class="section-divider">
-        <i class="bi bi-hdd-rack-fill text-warning"></i> Системни услуги
+        <i class="bi bi-hdd-rack-fill text-warning"></i> Операции и Инфраструктура
     </div>
 
     <div class="dash-grid">
@@ -154,19 +139,8 @@
                 <i class="bi bi-arrow-left-right"></i>
             </div>
             <div class="nav-content">
-                <h3>ERP Интеграции</h3>
-                <p>Синхронизация, Webhooks и API към външни системи.</p>
-            </div>
-            <i class="bi bi-arrow-right nav-arrow"></i>
-        </a>
-
-        <a href="{{ url_for('admin.access_windows') }}" class="nav-card orange">
-            <div class="nav-icon icon-orange">
-                <i class="bi bi-shield-lock"></i>
-            </div>
-            <div class="nav-content">
-                <h3>Достъп и графици</h3>
-                <p>Настрой графиците за роли, складове и потребители.</p>
+                <h3>ERP Интеграция</h3>
+                <p>Статус на синхронизацията и Webhooks.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
@@ -176,8 +150,8 @@
                 <i class="bi bi-boxes"></i>
             </div>
             <div class="nav-content">
-                <h3>Складове и локации</h3>
-                <p>Конфигурирайте логистичната инфраструктура и точки за изпълнение.</p>
+                <h3>Складове</h3>
+                <p>Локации, зони и логистика.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
@@ -188,17 +162,47 @@
             </div>
             <div class="nav-content">
                 <h3>Принтери</h3>
-                <p>Настройте мрежовите принтери по склад и управлявайте етикетните сървъри.</p>
+                <p>Етикетни принтери и мрежови настройки.</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>
+    </div>
+
+    <!-- 5. GSTROY ACADEMY (Лилави карти - НОВА СЕКЦИЯ) -->
+    <div class="section-divider">
+        <i class="bi bi-mortarboard-fill" style="color: #9333ea;"></i> GStroy Academy
+    </div>
+
+    <div class="dash-grid">
         <a href="{{ url_for('admin.academy_content') }}" class="nav-card purple">
             <div class="nav-icon icon-purple">
-                <i class="bi bi-mortarboard"></i>
+                <i class="bi bi-collection-play"></i>
             </div>
             <div class="nav-content">
-                <h3>Academy</h3>
-                <p>Създавайте съдържание, истории и push кампании.</p>
+                <h3>Съдържание</h3>
+                <p>Управление на Stories, Новини и Обучения.</p>
+            </div>
+            <i class="bi bi-arrow-right nav-arrow"></i>
+        </a>
+
+        <a href="{{ url_for('admin.academy_categories') }}" class="nav-card purple">
+            <div class="nav-icon icon-purple">
+                <i class="bi bi-folder2-open"></i>
+            </div>
+            <div class="nav-content">
+                <h3>Категории (Тагове)</h3>
+                <p>Организация на темите в академията.</p>
+            </div>
+            <i class="bi bi-arrow-right nav-arrow"></i>
+        </a>
+
+        <a href="{{ url_for('admin.academy_content_types') }}" class="nav-card purple">
+            <div class="nav-icon icon-purple">
+                <i class="bi bi-sliders"></i>
+            </div>
+            <div class="nav-content">
+                <h3>Типове Съдържание</h3>
+                <p>Настройки на форматите (Видео, Текст).</p>
             </div>
             <i class="bi bi-arrow-right nav-arrow"></i>
         </a>

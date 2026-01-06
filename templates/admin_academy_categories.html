@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Категории на Академията{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4 fade-in" style="max-width: 960px;">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+          <h3 class="mb-1">Категории на Академията</h3>
+          <p class="text-muted mb-0">Определете темите, които се показват във филтрите и емисията.</p>
+        </div>
+        <a href="{{ url_for('admin.academy_content') }}" class="btn btn-outline-secondary">Върни се към съдържание</a>
+      </div>
+      <form method="post" class="row g-3 mt-3">
+        <div class="col-md-6">
+          <label class="form-label">Име на категория</label>
+          <input name="name" class="form-control" placeholder="напр. Сигурност" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Описание (по избор)</label>
+          <input name="description" class="form-control" placeholder="Добавете пояснение">
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary">Запази категория</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="mb-3">Съществуващи категории</h5>
+      {% if categories %}
+        <div class="list-group list-group-flush">
+          {% for category in categories %}
+            <div class="list-group-item">
+              <form
+                method="post"
+                action="{{ url_for('admin.update_academy_category', category_id=category.id) }}"
+                class="row g-3 align-items-end"
+              >
+                <div class="col-sm-4">
+                  <label class="form-label mb-1">Име</label>
+                  <input
+                    name="name"
+                    class="form-control"
+                    value="{{ category.name }}"
+                    required
+                  >
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label mb-1">Описание</label>
+                  <input
+                    name="description"
+                    class="form-control"
+                    value="{{ category.description or '' }}"
+                    placeholder="по избор"
+                  >
+                </div>
+                <div class="col-sm-2 d-flex justify-content-end">
+                  <button type="submit" class="btn btn-sm btn-primary w-100">Запази</button>
+                </div>
+              </form>
+              <div class="mt-2 text-end">
+                <form
+                  method="post"
+                  action="{{ url_for('admin.delete_academy_category', category_id=category.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('Да изтрием ли тази категория?');"
+                >
+                  <button class="btn btn-sm btn-outline-danger">Изтрий</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">Все още няма създадени категории.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

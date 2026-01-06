@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime
 
-from flask import Blueprint, flash, g, redirect, render_template, request, url_for, current_app
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for, current_app, jsonify
 from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
@@ -19,6 +19,8 @@ from helpers import (
 from .catalog_sync import ensure_catalog_entries_for_products
 from models import (
     AccessWindow,
+    AcademyCategory,
+    AcademyContentType,
     Brand,
     Category,
     ContentItem,
@@ -195,8 +197,6 @@ def _academy_upload_dir():
     return upload_root
 
 
-ACADEMY_CATEGORIES = ["Security", "HR", "Features", "Operations", "Logistics"]
-
 
 def _estimate_read_time(html_text: str) -> int:
     if not html_text:
@@ -206,12 +206,25 @@ def _estimate_read_time(html_text: str) -> int:
     return max(1, len(words) // 160)
 
 
+def _academy_category_choices(session):
+    return [category.name for category in session.query(AcademyCategory).order_by(AcademyCategory.name).all()]
+
+
+def _academy_content_type_choices(session):
+    return [ctype.name for ctype in session.query(AcademyContentType).order_by(AcademyContentType.name).all()]
+
+
+def _ensure_choice_present(options, value):
+    if value and value not in options:
+        return options + [value]
+    return options
+
+
+@admin_bp.route("/academy/content", methods=["GET", "POST"])
 @admin_bp.route("/academy", methods=["GET", "POST"])
 def academy_content():
     require_admin()
     session = g.db
-    edit_id = request.args.get("edit", type=int)
-    edit_item = session.get(ContentItem, edit_id) if edit_id else None
     if request.method == "POST":
         item_id = request.form.get("item_id", type=int)
         title = (request.form.get("title") or "").strip()
@@ -259,6 +272,25 @@ def academy_content():
         session.commit()
         flash("Контентът беше запазен успешно.", "success")
         return redirect(url_for(".academy_content"))
+    edit_id = request.args.get("edit", type=int)
+    is_new = request.args.get("new")
+    if edit_id or is_new:
+        edit_item = session.get(ContentItem, edit_id) if edit_id else None
+        categories = _academy_category_choices(session)
+        content_types = _academy_content_type_choices(session)
+        categories = _ensure_choice_present(
+            categories, edit_item.category if edit_item else None
+        )
+        content_types = _ensure_choice_present(
+            content_types, edit_item.content_type if edit_item else None
+        )
+        return render_template(
+            "admin/academy_editor.html",
+            edit_item=edit_item,
+            categories=categories,
+            content_types=content_types,
+        )
+
     items = session.query(ContentItem).order_by(ContentItem.created_at.desc()).all()
     progresses = session.query(UserContentProgress).all()
     stats = {}
@@ -273,13 +305,32 @@ def academy_content():
                 reactions[record.content_item_id].get(record.reaction, 0) + 1
             )
     return render_template(
-        "admin_academy.html",
+        "admin/academy_list.html",
         items=items,
         stats=stats,
         reactions=reactions,
-        edit_item=edit_item,
-        categories=ACADEMY_CATEGORIES,
     )
+
+
+@admin_bp.route("/academy/upload-image", methods=["POST"])
+def upload_editor_image():
+    require_admin()
+    if "image" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    file = request.files["image"]
+    if not file.filename:
+        return jsonify({"error": "No selected file"}), 400
+    filename = secure_filename(file.filename)
+    if not filename:
+        return jsonify({"error": "Invalid file name"}), 400
+    upload_folder = os.path.join(
+        current_app.static_folder, "uploads", "academy"
+    )
+    os.makedirs(upload_folder, exist_ok=True)
+    file_path = os.path.join(upload_folder, filename)
+    file.save(file_path)
+    url = url_for("static", filename=f"uploads/academy/{filename}")
+    return jsonify({"url": url})
 
 
 @admin_bp.route("/academy/push", methods=["POST"])
@@ -291,6 +342,167 @@ def academy_push():
         return redirect(url_for(".academy_content"))
     flash(f"Push sent to 150 devices with deep link: erp://academy/item/{item_id}", "success")
     return redirect(url_for(".academy_content"))
+
+
+@admin_bp.route("/academy/delete/<int:item_id>", methods=["POST"])
+def delete_academy_item(item_id):
+    require_admin()
+    session = g.db
+    item = session.get(ContentItem, item_id)
+    if not item:
+        flash("Content item not found.", "warning")
+        return redirect(url_for(".academy_content"))
+    session.delete(item)
+    session.commit()
+
+    flash("Content item was deleted.", "success")
+    return redirect(url_for(".academy_content"))
+
+
+@admin_bp.route("/academy/categories", methods=["GET", "POST"])
+def academy_categories():
+    require_admin()
+    session = g.db
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        description = (request.form.get("description") or "").strip() or None
+        if not name:
+            flash("Моля въведете име на категория.", "warning")
+            return redirect(url_for(".academy_categories"))
+        existing = (
+            session.query(AcademyCategory)
+            .filter(func.lower(AcademyCategory.name) == name.lower())
+            .first()
+        )
+        if existing:
+            flash("Категория с това име вече съществува.", "warning")
+            return redirect(url_for(".academy_categories"))
+        category = AcademyCategory(name=name, description=description)
+        session.add(category)
+        session.commit()
+        flash("Категорията е записана.", "success")
+        return redirect(url_for(".academy_categories"))
+
+    categories = session.query(AcademyCategory).order_by(AcademyCategory.name).all()
+    return render_template("admin_academy_categories.html", categories=categories)
+
+
+@admin_bp.route("/academy/categories/<int:category_id>/delete", methods=["POST"])
+def delete_academy_category(category_id):
+    require_admin()
+    session = g.db
+    category = session.get(AcademyCategory, category_id)
+    if not category:
+        return render_template("404.html"), 404
+    session.delete(category)
+    session.commit()
+    flash("Категорията е премахната.", "success")
+    return redirect(url_for(".academy_categories"))
+
+
+@admin_bp.route("/academy/categories/<int:category_id>/update", methods=["POST"])
+def update_academy_category(category_id):
+    require_admin()
+    session = g.db
+    category = session.get(AcademyCategory, category_id)
+    if not category:
+        return render_template("404.html"), 404
+    name = (request.form.get("name") or "").strip()
+    description = (request.form.get("description") or "").strip() or None
+    if not name:
+        flash("Моля въведете име на категория.", "warning")
+        return redirect(url_for(".academy_categories"))
+    existing = (
+        session.query(AcademyCategory)
+        .filter(
+            func.lower(AcademyCategory.name) == name.lower(),
+            AcademyCategory.id != category.id,
+        )
+        .first()
+    )
+    if existing:
+        flash("Категория с това име вече съществува.", "warning")
+        return redirect(url_for(".academy_categories"))
+    category.name = name
+    category.description = description
+    session.commit()
+    flash("Категорията е записана.", "success")
+    return redirect(url_for(".academy_categories"))
+
+
+@admin_bp.route("/academy/content-types", methods=["GET", "POST"])
+def academy_content_types():
+    require_admin()
+    session = g.db
+    if request.method == "POST":
+        raw_name = (request.form.get("name") or "").strip()
+        name = raw_name.upper()
+        description = (request.form.get("description") or "").strip() or None
+        if not name:
+            flash("Моля въведете код на типа съдържание.", "warning")
+            return redirect(url_for(".academy_content_types"))
+        existing = (
+            session.query(AcademyContentType)
+            .filter(func.lower(AcademyContentType.name) == name.lower())
+            .first()
+        )
+        if existing:
+            flash("Тип със същото име вече съществува.", "warning")
+            return redirect(url_for(".academy_content_types"))
+        content_type = AcademyContentType(name=name, description=description)
+        session.add(content_type)
+        session.commit()
+        flash("Типът съдържание е записан.", "success")
+        return redirect(url_for(".academy_content_types"))
+
+    content_types = session.query(AcademyContentType).order_by(AcademyContentType.name).all()
+    return render_template("admin_academy_types.html", content_types=content_types)
+
+
+@admin_bp.route("/academy/content-types/<int:type_id>/delete", methods=["POST"])
+def delete_academy_content_type(type_id):
+    require_admin()
+    session = g.db
+    content_type = session.get(AcademyContentType, type_id)
+    if not content_type:
+        return render_template("404.html"), 404
+    session.delete(content_type)
+    session.commit()
+    flash("Типът съдържание беше премахнат.", "success")
+    return redirect(url_for(".academy_content_types"))
+
+
+@admin_bp.route("/academy/content-types/<int:type_id>/update", methods=["POST"])
+def update_academy_content_type(type_id):
+    require_admin()
+    session = g.db
+    content_type = session.get(AcademyContentType, type_id)
+    if not content_type:
+        return render_template("404.html"), 404
+    raw_name = (request.form.get("name") or "").strip()
+    name = raw_name.upper()
+    description = (request.form.get("description") or "").strip() or None
+    if not name:
+        flash("Моля въведете код на типа съдържание.", "warning")
+        return redirect(url_for(".academy_content_types"))
+    existing = (
+        session.query(AcademyContentType)
+        .filter(
+            func.lower(AcademyContentType.name) == name.lower(),
+            AcademyContentType.id != content_type.id,
+        )
+        .first()
+    )
+    if existing:
+        flash("Тип със същото име вече съществува.", "warning")
+        return redirect(url_for(".academy_content_types"))
+    content_type.name = name
+    content_type.description = description
+    session.commit()
+    flash("Типът съдържание е записан.", "success")
+    return redirect(url_for(".academy_content_types"))
+
+
 def _user_form_options(session):
     return {
         "service_points": session.query(ServicePoint).order_by(ServicePoint.name).all(),

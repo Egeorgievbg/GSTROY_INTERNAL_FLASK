@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GStroy Print Architecture (Secure / Stable / Fast)</title>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#121a33; --card:#0f1730; --text:#e8ecff; --muted:#a8b1d6;
+      --ok:#2ee59d; --warn:#ffd166; --bad:#ff5c7a; --line:#2a3563; --accent:#6ea8ff;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 700px at 20% 0%, #18245a 0%, var(--bg) 55%); color:var(--text); font-family:var(--sans)}
+    .wrap{max-width:1200px;margin:0 auto;padding:28px 18px 42px}
+    h1{font-size:20px;margin:0 0 10px}
+    .sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0 0 18px}
+    .tabs{display:flex;gap:10px;margin:16px 0 18px;flex-wrap:wrap}
+    .tabbtn{
+      border:1px solid var(--line); background:rgba(18,26,51,.6); color:var(--text);
+      padding:10px 12px; border-radius:12px; cursor:pointer; font-size:13px;
+    }
+    .tabbtn[aria-selected="true"]{border-color:var(--accent); box-shadow:0 0 0 3px rgba(110,168,255,.15)}
+    .panel{background:rgba(18,26,51,.55); border:1px solid var(--line); border-radius:18px; padding:16px}
+    .grid{display:grid; grid-template-columns: 1.05fr 1.6fr 1.05fr; gap:14px; align-items:stretch}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+
+    .col{background:rgba(15,23,48,.55); border:1px solid var(--line); border-radius:16px; padding:14px}
+    .col h2{font-size:14px;margin:0 0 10px;color:var(--muted);letter-spacing:.2px}
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:16px; padding:12px 12px; margin:10px 0;
+    }
+    .title{display:flex;align-items:center;gap:8px;font-weight:650}
+    .tag{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--line); color:var(--muted)}
+    .tag.ok{border-color:rgba(46,229,157,.35); color:var(--ok)}
+    .tag.warn{border-color:rgba(255,209,102,.35); color:var(--warn)}
+    .tag.bad{border-color:rgba(255,92,122,.35); color:var(--bad)}
+    .mono{font-family:var(--mono); font-size:12px; color:var(--muted)}
+    ul{margin:8px 0 0 18px; padding:0; color:var(--muted); font-size:12.5px; line-height:1.5}
+    .flow{
+      position:relative; background:rgba(15,23,48,.35);
+      border:1px dashed rgba(110,168,255,.35); border-radius:16px; padding:14px;
+      min-height: 420px;
+    }
+    .flow h2{margin:0 0 10px; font-size:14px; color:var(--muted)}
+    .nodes{display:grid; grid-template-columns: 1fr; gap:10px}
+    .node{
+      border:1px solid var(--line); background:rgba(18,26,51,.65);
+      border-radius:16px; padding:12px;
+    }
+    .node .title{font-weight:700}
+    .arrow{
+      display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px;
+      padding:2px 6px 2px 10px;
+    }
+    .arrow .line{
+      flex:1; height:2px; background:linear-gradient(90deg, rgba(110,168,255,.2), rgba(110,168,255,.6));
+      border-radius:99px; position:relative;
+    }
+    .arrow .line:after{
+      content:""; position:absolute; right:-1px; top:50%; transform:translateY(-50%);
+      width:0;height:0;border-left:10px solid rgba(110,168,255,.7);
+      border-top:6px solid transparent; border-bottom:6px solid transparent;
+    }
+    .kbd{
+      font-family:var(--mono); font-size:11px; padding:3px 6px; border:1px solid var(--line);
+      border-radius:8px; background:rgba(0,0,0,.2); color:var(--text)
+    }
+    .footer{
+      margin-top:14px; color:var(--muted); font-size:12.5px; line-height:1.6
+    }
+    .pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .pill{
+      border:1px solid var(--line); border-radius:999px; padding:6px 10px;
+      background:rgba(0,0,0,.16); color:var(--muted); font-size:12px
+    }
+    .pill strong{color:var(--text); font-weight:650}
+    code{font-family:var(--mono)}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Най-сигурна / най-стабилна / най-бърза / най-независима печат архитектура</h1>
+  <p class="sub">
+    Идеята: <b>локален печат във всяка база</b> (LAN), <b>нулев public достъп до принтери</b>, и <b>един контролен вход</b>
+    (HQ Gateway). Плюс <b>локална опашка</b> за независимост при паднала връзка.
+  </p>
+
+  <div class="tabs" role="tablist" aria-label="Диаграми">
+    <button class="tabbtn" role="tab" aria-selected="true" aria-controls="tab-gateway" id="btn-gateway">Вариант A: Push през HQ Gateway (препоръчан)</button>
+    <button class="tabbtn" role="tab" aria-selected="false" aria-controls="tab-pull" id="btn-pull">Вариант B: Pull jobs (още по-независим)</button>
+  </div>
+
+  <!-- TAB A -->
+  <section class="panel" role="tabpanel" id="tab-gateway" aria-labelledby="btn-gateway">
+    <div class="grid">
+      <div class="col">
+        <h2>Публична зона (Cloud / Internet)</h2>
+
+        <div class="card">
+          <div class="title">Django (Cloud) <span class="tag ok">No printer access</span></div>
+          <div class="mono">Праща print заявки само към 1 URL (Gateway)</div>
+          <ul>
+            <li>Никакъв порт/достъп до бази</li>
+            <li>Няма direct до принтери</li>
+            <li>Генерира payload (данни за етикета)</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="title">Auth слой <span class="tag ok">mTLS/HMAC</span></div>
+          <div class="mono">Най-добре: mTLS, иначе HMAC подпис на payload</div>
+          <ul>
+            <li>Rate-limit</li>
+            <li>Audit log</li>
+            <li>Idempotency key (по желание)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow">
+        <h2>Поток (Push)</h2>
+        <div class="nodes">
+          <div class="node">
+            <div class="title">1) Django (Cloud)</div>
+            <div class="mono">POST <span class="kbd">/print</span> към Gateway (HTTPS)</div>
+          </div>
+          <div class="arrow"><span>HTTPS</span><span class="line"></span><span class="kbd">mTLS / HMAC</span></div>
+
+          <div class="node">
+            <div class="title">2) HQ Print Gateway</div>
+            <div class="mono">Единствен публичен вход</div>
+            <ul>
+              <li>Валидира auth</li>
+              <li>Решава към кой сайт/агент да маршрутизира</li>
+              <li>Логва: user, printer, copies, job_id</li>
+            </ul>
+          </div>
+          <div class="arrow"><span>VPN/Private</span><span class="line"></span><span class="kbd">WireGuard</span></div>
+
+          <div class="node">
+            <div class="title">3) Local Print Agent (в базата)</div>
+            <div class="mono">LAN-only: <code>10.22.x.y:8001</code></div>
+            <ul>
+              <li>Записва job в локална SQLite queue</li>
+              <li>Retry + backoff</li>
+              <li>Статус: queued/printing/done/failed</li>
+            </ul>
+          </div>
+          <div class="arrow"><span>LAN RAW</span><span class="line"></span><span class="kbd">9100</span></div>
+
+          <div class="node">
+            <div class="title">4) Принтер</div>
+            <div class="mono">Приема RAW само от IP на агента</div>
+            <ul>
+              <li>Firewall allowlist: само agent → printer</li>
+              <li>Няма достъп от “цялата мрежа”</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="pillrow">
+            <div class="pill"><strong>Fast:</strong> етикетите се печатат в LAN (минимална латентност)</div>
+            <div class="pill"><strong>Secure:</strong> само Gateway е публичен; принтерите не са</div>
+            <div class="pill"><strong>Stable:</strong> локална queue + retries</div>
+            <div class="pill"><strong>Independent:</strong> jobs не се губят при прекъсване</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>Вътрешна зона (HQ + бази)</h2>
+
+        <div class="card">
+          <div class="title">HQ Print Gateway <span class="tag ok">Single entry</span></div>
+          <div class="mono">Публично само: 443/TCP (HTTPS)</div>
+          <ul>
+            <li>Reverse proxy (Nginx/Caddy)</li>
+            <li>WAF/allowlist (по желание)</li>
+            <li>Routing към агенти: по printer_id/site_id</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="title">Base Agents <span class="tag warn">LAN-only</span></div>
+          <div class="mono">Един порт навсякъде: <code>:8001</code></div>
+          <ul>
+            <li>Никакъв public exposure</li>
+            <li>Системна услуга (systemd)</li>
+            <li>Health: <code>/</code> и <code>/printers/&lt;ip&gt;/status</code></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="title">Принтери <span class="tag bad">Never public</span></div>
+          <div class="mono">9100/RAW видим само от агента</div>
+          <ul>
+            <li>Сегментация/VLAN (ако имате)</li>
+            <li>Allowlist по IP</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB B -->
+  <section class="panel" role="tabpanel" id="tab-pull" aria-labelledby="btn-pull" hidden>
+    <div class="grid">
+      <div class="col">
+        <h2>Cloud</h2>
+
+        <div class="card">
+          <div class="title">Django (Cloud) <span class="tag ok">No inbound to bases</span></div>
+          <div class="mono">Записва jobs в DB/Queue (cloud)</div>
+          <ul>
+            <li>Няма нужда да “вижда” 10.22.x.x</li>
+            <li>Няма портове към базите</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="title">Job Store <span class="tag ok">Queue/DB</span></div>
+          <div class="mono">Пример: таблица print_jobs или message queue</div>
+          <ul>
+            <li>Статуси + idempotency</li>
+            <li>Retention</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow">
+        <h2>Поток (Pull)</h2>
+        <div class="nodes">
+          <div class="node">
+            <div class="title">1) Django</div>
+            <div class="mono">INSERT job → Job Store</div>
+          </div>
+          <div class="arrow"><span>Cloud internal</span><span class="line"></span><span class="kbd">DB/Queue</span></div>
+
+          <div class="node">
+            <div class="title">2) Local Agent (в базата)</div>
+            <div class="mono">На всеки 1-2s: <span class="kbd">GET /jobs?site=varna</span></div>
+            <ul>
+              <li>Връзка е само изходяща (outbound)</li>
+              <li>Long-poll/WebSocket (по желание)</li>
+            </ul>
+          </div>
+          <div class="arrow"><span>HTTPS</span><span class="line"></span><span class="kbd">Token/HMAC</span></div>
+
+          <div class="node">
+            <div class="title">3) Agent печата локално</div>
+            <div class="mono">SQLite queue + retries</div>
+          </div>
+          <div class="arrow"><span>LAN RAW</span><span class="line"></span><span class="kbd">9100</span></div>
+
+          <div class="node">
+            <div class="title">4) Принтер</div>
+            <div class="mono">Allowlist: само agent IP</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="pillrow">
+            <div class="pill"><strong>Most independent:</strong> базите не приемат inbound връзки</div>
+            <div class="pill"><strong>Secure:</strong> само outbound от базите</div>
+            <div class="pill"><strong>Fast locally:</strong> печатът пак е LAN</div>
+            <div class="pill"><strong>Tradeoff:</strong> 1-2s polling (може long-poll)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>Бази (Stores)</h2>
+
+        <div class="card">
+          <div class="title">Agent <span class="tag ok">Outbound only</span></div>
+          <div class="mono">Дърпа jobs от cloud, печата локално</div>
+          <ul>
+            <li>Нула публични портове към базата</li>
+            <li>Много устойчиво при NAT/ISP промени</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="title">Принтери <span class="tag bad">LAN only</span></div>
+          <div class="mono">9100 видим само от agent</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="sub" style="margin-top:16px">
+    Ако целта е “най-най” по всички критерии: <b>Вариант A</b> (Gateway + локални агенти + VPN) е най-универсален.
+    Ако искаш <b>абсолютен минимум inbound</b> навсякъде: <b>Вариант B</b> (Pull) е най-сигурният от мрежова гледна точка.
+  </p>
+</div>
+
+<script>
+  const btnA = document.getElementById("btn-gateway");
+  const btnB = document.getElementById("btn-pull");
+  const tabA = document.getElementById("tab-gateway");
+  const tabB = document.getElementById("tab-pull");
+
+  function select(which){
+    const isA = which === "A";
+    btnA.setAttribute("aria-selected", String(isA));
+    btnB.setAttribute("aria-selected", String(!isA));
+    tabA.hidden = !isA;
+    tabB.hidden = isA;
+  }
+  btnA.addEventListener("click", () => select("A"));
+  btnB.addEventListener("click", () => select("B"));
+</script>
+</body>
+</html>
