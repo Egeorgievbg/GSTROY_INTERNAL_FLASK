@@ -4,7 +4,7 @@
 
 {% block content %}
 
-<!-- РЎРўРР›РћР’Р• (РџСЂРµРјРµСЃС‚РµРЅРё С‚СѓРє, Р·Р° РґР° СЃРјРµ СЃРёРіСѓСЂРЅРё, С‡Рµ СЃРµ Р·Р°СЂРµР¶РґР°С‚) -->
+<!-- STYLES -->
 <style>
     /* --- AERO CORE STYLES --- */
     :root {
@@ -116,6 +116,36 @@
     .nav-link-cat:hover { background: #f1f5f9; color: var(--brand-dark); }
     .nav-link-cat.active { background: #dcfce7; color: #166534; font-weight: 700; }
     .nav-link-cat.active i { color: #166534; }
+
+    .search-suggest-wrapper { position: relative; }
+    .search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 6px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        max-height: 260px;
+        overflow-y: auto;
+        z-index: 1000;
+    }
+    .search-suggestion-item {
+        width: 100%;
+        text-align: left;
+        padding: 8px 12px;
+        border: 0;
+        background: transparent;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .search-suggestion-item:hover { background: #f8fafc; }
+    .search-suggestion-title { font-weight: 600; color: #0f172a; font-size: 0.9rem; }
+    .search-suggestion-meta { font-size: 0.75rem; color: #64748b; }
+    .search-suggestion-empty { padding: 8px 12px; font-size: 0.8rem; color: #94a3b8; }
 </style>
 
 <!-- MACRO: RECURSIVE CATEGORY TREE -->
@@ -124,7 +154,7 @@
         {% for cat in categories %}
             <li class="mb-1">
                 <div class="d-flex align-items-center justify-content-between">
-                    <a href="{{ url_for('category_page', slug=cat.slug) }}" 
+                    <a href="{{ url_for('products.category_page', slug=cat.slug) }}" 
                        class="nav-link-cat w-100 {{ 'active' if cat.slug == active_slug else '' }}"
                        style="padding-left: {{ (level * 12) + 10 }}px;">
                        {{ cat.name }}
@@ -156,11 +186,11 @@
         <!-- Breadcrumbs -->
         <nav aria-label="breadcrumb" class="mb-2">
             <ol class="breadcrumb small text-uppercase fw-bold mb-0" style="font-size: 0.7rem;">
-                <li class="breadcrumb-item"><a href="/" class="text-muted text-decoration-none">РќР°С‡Р°Р»Рѕ</a></li>
-                <li class="breadcrumb-item"><a href="{{ url_for('products.products') }}" class="text-muted text-decoration-none">РљР°С‚Р°Р»РѕРі</a></li>
+                <li class="breadcrumb-item"><a href="/" class="text-muted text-decoration-none">Начало</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('products.products') }}" class="text-muted text-decoration-none">Каталог</a></li>
                 {% for crumb in breadcrumb %}
                     {% if not loop.last %}
-                        <li class="breadcrumb-item"><a href="{{ url_for('category_page', slug=crumb.slug) }}" class="text-muted text-decoration-none">{{ crumb.name }}</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('products.category_page', slug=crumb.slug) }}" class="text-muted text-decoration-none">{{ crumb.name }}</a></li>
                     {% else %}
                         <li class="breadcrumb-item active text-success">{{ crumb.name }}</li>
                     {% endif %}
@@ -180,7 +210,7 @@
             
             <div class="d-flex align-items-center gap-3">
                  <span class="badge bg-white text-dark border rounded-pill px-3 py-2 shadow-sm">
-                    <span class="fw-bold">{{ total_items }}</span> РџСЂРѕРґСѓРєС‚Р°
+                    <span class="fw-bold">{{ total_items }}</span> Продукта
                  </span>
             </div>
         </div>
@@ -188,11 +218,11 @@
         <!-- SUBCATEGORY CHIPS (HORIZONTAL SCROLL) -->
         {% if subcategories %}
         <div class="mt-4 pt-3 border-top">
-            <label class="small text-muted fw-bold text-uppercase mb-2 d-block" style="font-size: 0.7rem;">РџРѕРґРєР°С‚РµРіРѕСЂРёРё</label>
+            <label class="small text-muted fw-bold text-uppercase mb-2 d-block" style="font-size: 0.7rem;">Подкатегории</label>
             <div class="chip-scroll-wrapper">
                 <div class="chip-scroll-container">
                     {% for sub in subcategories %}
-                    <a href="{{ url_for('category_page', slug=sub.slug) }}" class="subcat-chip">
+                    <a href="{{ url_for('products.category_page', slug=sub.slug) }}" class="subcat-chip">
                         <i class="bi bi-grid-fill"></i>
                         {{ sub.name }}
                     </a>
@@ -209,7 +239,7 @@
     <button class="btn btn-brand-new w-100 shadow-lg py-3 rounded-pill d-flex align-items-center justify-content-center gap-2 fw-bold text-uppercase" 
             type="button" data-bs-toggle="offcanvas" data-bs-target="#filterCanvas" 
             style="background: #0f172a; border-radius: 50rem;">
-        <i class="bi bi-sliders2"></i> Р¤РёР»С‚СЂРёСЂР°Р№
+        <i class="bi bi-sliders2"></i> Филтрирай
     </button>
 </div>
 
@@ -223,29 +253,35 @@
         <div class="col-lg-3 d-none d-lg-block">
             <aside class="filter-sidebar">
                 <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                    <span class="fw-bold text-uppercase small text-muted">Р¤РёР»С‚СЂРё</span>
-                    <a href="{{ url_for('category_page', slug=category.slug) }}" class="text-danger small fw-bold text-decoration-none">РР·С‡РёСЃС‚Рё</a>
+                    <span class="fw-bold text-uppercase small text-muted">Филтри</span>
+                    <a href="{{ url_for('products.category_page', slug=category.slug) }}" class="text-danger small fw-bold text-decoration-none">Изчисти</a>
                 </div>
 
                 <form action="" method="get">
+                    <div class="mb-4 search-suggest-wrapper">
+                        <h6 class="fw-bold small text-dark mb-2">Търсене</h6>
+                        <input type="text" class="form-control form-control-sm bg-light border-0 rounded-3" id="category-search-input" name="search" value="{{ search_query }}" placeholder="Търси..." autocomplete="off" data-suggest-url="{{ url_for('products.product_suggest') }}">
+                        <div id="category-search-suggestions" class="search-suggestions d-none"></div>
+                    </div>
+
                     <!-- Navigation -->
                     <div class="mb-4">
-                        <h6 class="fw-bold small text-dark mb-2">РќР°РІРёРіР°С†РёСЏ</h6>
+                        <h6 class="fw-bold small text-dark mb-2">Навигация</h6>
                         {{ render_category_tree(nav_categories, active_category_slug) }}
                     </div>
 
                     <!-- Price -->
                     <div class="mb-4">
-                        <h6 class="fw-bold small text-dark mb-2">Р¦РµРЅР° (Р»РІ.)</h6>
+                        <h6 class="fw-bold small text-dark mb-2">Цена (€)</h6>
                         <div class="d-flex gap-2">
-                            <input type="number" class="form-control form-control-sm bg-light border-0 rounded-3" name="min_price" placeholder="РћС‚">
-                            <input type="number" class="form-control form-control-sm bg-light border-0 rounded-3" name="max_price" placeholder="Р”Рѕ">
+                            <input type="number" class="form-control form-control-sm bg-light border-0 rounded-3" name="min_price" placeholder="От">
+                            <input type="number" class="form-control form-control-sm bg-light border-0 rounded-3" name="max_price" placeholder="До">
                         </div>
                     </div>
 
                     <!-- Brands -->
                     <div class="mb-4">
-                        <h6 class="fw-bold small text-dark mb-2">РњР°СЂРєР°</h6>
+                        <h6 class="fw-bold small text-dark mb-2">Марка</h6>
                         <div style="max-height: 250px; overflow-y: auto;" class="pe-2 custom-scroll">
                             {% for brand in brands %}
                             <label class="d-flex align-items-center gap-2 mb-2 cursor-pointer">
@@ -260,7 +296,7 @@
                     <input type="hidden" name="sort" value="{{ sort }}">
                     <input type="hidden" name="view" value="{{ view_mode }}">
                     
-                    <button class="btn btn-dark w-100 rounded-pill fw-bold shadow-sm mt-2">РџСЂРёР»РѕР¶Рё</button>
+                    <button class="btn btn-dark w-100 rounded-pill fw-bold shadow-sm mt-2">Приложи</button>
                 </form>
             </aside>
         </div>
@@ -271,7 +307,7 @@
                 <!-- Toolbar -->
                 <div class="d-flex align-items-center justify-content-between mb-4 bg-white p-3 rounded-4 border shadow-sm">
                     <span class="text-muted small fw-bold">
-                        {{ total_items }} Р РµР·СѓР»С‚Р°С‚Р°
+                        {{ total_items }} Резултата
                     </span>
 
                     <div class="d-flex align-items-center gap-3">
@@ -279,9 +315,9 @@
                         <div class="d-none d-md-block">
                             <select class="form-select border-0 bg-light rounded-pill text-muted small fw-bold ps-3 pe-5 py-2" 
                                     onchange="updateQueryParam('sort', this.value)">
-                                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>РќР°Р№-РЅРѕРІРё</option>
-                                <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Р¦РµРЅР° (РќРёСЃРєР° &rarr; Р’РёСЃРѕРєР°)</option>
-                                <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Р¦РµРЅР° (Р’РёСЃРѕРєР° &rarr; РќРёСЃРєР°)</option>
+                                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Най-нови</option>
+                                <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Цена (Ниска &rarr; Висока)</option>
+                                <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Цена (Висока &rarr; Ниска)</option>
                             </select>
                         </div>
 
@@ -310,10 +346,10 @@
                                 <table class="table table-hover align-middle mb-0 table-clean">
                                     <thead class="bg-light">
                                         <tr>
-                                            <th class="ps-4 py-3 small fw-bold text-muted text-uppercase">РџСЂРѕРґСѓРєС‚</th>
+                                            <th class="ps-4 py-3 small fw-bold text-muted text-uppercase">Продукт</th>
                                             <th class="py-3 small fw-bold text-muted text-uppercase">РРЅС„Рѕ</th>
-                                            <th class="py-3 small fw-bold text-muted text-uppercase">Р›РѕРєР°С†РёСЏ</th>
-                                            <th class="text-end pe-4 py-3 small fw-bold text-muted text-uppercase">Р¦РµРЅР°</th>
+                                            <th class="py-3 small fw-bold text-muted text-uppercase">Локация</th>
+                                            <th class="text-end pe-4 py-3 small fw-bold text-muted text-uppercase">Цена</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white">
@@ -328,9 +364,9 @@
                         <div class="bg-light rounded-circle d-inline-flex p-4 mb-3">
                             <i class="bi bi-box-seam fs-1 text-muted"></i>
                         </div>
-                        <h4>РќСЏРјР° РїСЂРѕРґСѓРєС‚Рё</h4>
-                        <p class="text-muted">РџСЂРѕРјРµРЅРµС‚Рµ С„РёР»С‚СЂРёС‚Рµ Рё РѕРїРёС‚Р°Р№С‚Рµ РѕС‚РЅРѕРІРѕ.</p>
-                        <a href="{{ url_for('category_page', slug=category.slug) }}" class="btn btn-outline-dark rounded-pill">РР·С‡РёСЃС‚Рё</a>
+                        <h4>Няма продукти</h4>
+                        <p class="text-muted">Променете филтрите и опитайте отново.</p>
+                        <a href="{{ url_for('products.category_page', slug=category.slug) }}" class="btn btn-outline-dark rounded-pill">Изчисти</a>
                     </div>
                 {% endif %}
                 </div>
@@ -340,7 +376,7 @@
                 <div class="text-center mt-5 mb-5">
                      <button id="btn-load-more" class="btn btn-white border shadow-sm rounded-pill px-5 py-3 text-dark fw-bold" data-next-page="{{ next_page }}">
                         <span class="spinner-border spinner-border-sm d-none me-2"></span>
-                        <span class="btn-text">Р—Р°СЂРµРґРё РѕС‰Рµ</span> <i class="bi bi-arrow-clockwise ms-1"></i>
+                        <span class="btn-text">Зареди още</span> <i class="bi bi-arrow-clockwise ms-1"></i>
                     </button>
                 </div>
                 {% endif %}
@@ -352,32 +388,37 @@
 <!-- OFFCANVAS MOBILE -->
 <div class="offcanvas offcanvas-bottom h-auto" style="max-height: 85vh;" tabindex="-1" id="filterCanvas">
     <div class="offcanvas-header border-bottom bg-white sticky-top">
-        <h5 class="offcanvas-title fw-bold">Р¤РёР»С‚СЂРё</h5>
+        <h5 class="offcanvas-title fw-bold">Филтри</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body p-4 custom-scrollbar">
         <form action="" method="get">
+            <div class="mb-4">
+                <label class="small fw-bold text-muted text-uppercase mb-2">Търсене</label>
+                <input type="text" class="form-control form-control-lg bg-light border-0" name="search" value="{{ search_query }}" placeholder="Търси...">
+            </div>
+
             
             <div class="mb-4">
-                <label class="small fw-bold text-muted text-uppercase mb-2">РЎРѕСЂС‚РёСЂР°РЅРµ</label>
+                <label class="small fw-bold text-muted text-uppercase mb-2">Сортиране</label>
                 <select class="form-select form-select-lg bg-light border-0" name="sort">
-                    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>РќР°Р№-РЅРѕРІРё</option>
-                    <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Р¦РµРЅР° (Р’СЉР·С…РѕРґСЏС‰Р°)</option>
-                    <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Р¦РµРЅР° (РќРёР·С…РѕРґСЏС‰Р°)</option>
+                    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Най-нови</option>
+                    <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Цена (Възходяща)</option>
+                    <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Цена (Низходяща)</option>
                 </select>
             </div>
 
             <div class="mb-4">
-                 <label class="small fw-bold text-muted text-uppercase mb-2">РќР°РІРёРіР°С†РёСЏ</label>
+                 <label class="small fw-bold text-muted text-uppercase mb-2">Навигация</label>
                  <div class="border rounded-3 p-3">
                      {{ render_category_tree(nav_categories, active_category_slug) }}
                  </div>
             </div>
 
             <div class="mb-4">
-                <label class="small fw-bold text-muted text-uppercase mb-2">РњР°СЂРєР°</label>
+                <label class="small fw-bold text-muted text-uppercase mb-2">Марка</label>
                 <select class="form-select form-select-lg bg-light border-0" name="brand">
-                    <option value="">Р’СЃРёС‡РєРё</option>
+                    <option value="">Всички</option>
                     {% for brand in brands %}
                         <option value="{{ brand }}" {% if selected_brand == brand %}selected{% endif %}>{{ brand }}</option>
                     {% endfor %}
@@ -387,7 +428,7 @@
             <input type="hidden" name="view" value="{{ view_mode }}">
             
             <div class="d-grid gap-2 mt-5">
-                <button class="btn btn-dark py-3 fw-bold rounded-pill">РџРѕРєР°Р¶Рё СЂРµР·СѓР»С‚Р°С‚Рё</button>
+                <button class="btn btn-dark py-3 fw-bold rounded-pill">Покажи резултати</button>
             </div>
         </form>
     </div>
@@ -405,4 +446,78 @@
 
 {% block scripts %}
     {% include "_load_more_script.html" %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('category-search-input');
+            const suggestions = document.getElementById('category-search-suggestions');
+            if (!searchInput || !suggestions) {
+                return;
+            }
+            const suggestUrl = searchInput.dataset.suggestUrl;
+            let timer = null;
+
+            const hideSuggestions = () => {
+                suggestions.classList.add('d-none');
+                suggestions.innerHTML = '';
+            };
+
+            const renderSuggestions = (items) => {
+                if (!items.length) {
+                    suggestions.innerHTML = '<div class="search-suggestion-empty">Няма резултати</div>';
+                    suggestions.classList.remove('d-none');
+                    return;
+                }
+                suggestions.innerHTML = items.map((item) => {
+                    const code = item.item_number || '';
+                    const name = item.name || code;
+                    const meta = [item.brand, item.category].filter(Boolean).join(' • ');
+                    const metaLine = meta ? `${code} • ${meta}` : code;
+                    return `
+                        <button type="button" class="search-suggestion-item" data-value="${code}">
+                            <span class="search-suggestion-title">${name}</span>
+                            <span class="search-suggestion-meta">${metaLine}</span>
+                        </button>
+                    `;
+                }).join('');
+                suggestions.classList.remove('d-none');
+            };
+
+            const fetchSuggestions = (value) => {
+                fetch(`${suggestUrl}?q=${encodeURIComponent(value)}`)
+                    .then((res) => res.json())
+                    .then((data) => renderSuggestions(data.items || []))
+                    .catch(() => hideSuggestions());
+            };
+
+            searchInput.addEventListener('input', () => {
+                const value = searchInput.value.trim();
+                if (value.length < 2) {
+                    hideSuggestions();
+                    return;
+                }
+                clearTimeout(timer);
+                timer = setTimeout(() => fetchSuggestions(value), 250);
+            });
+
+            suggestions.addEventListener('click', (event) => {
+                const btn = event.target.closest('.search-suggestion-item');
+                if (!btn) {
+                    return;
+                }
+                searchInput.value = btn.dataset.value || searchInput.value;
+                const form = searchInput.closest('form');
+                if (form) {
+                    form.submit();
+                }
+                hideSuggestions();
+            });
+
+            document.addEventListener('click', (event) => {
+                if (event.target === searchInput || suggestions.contains(event.target)) {
+                    return;
+                }
+                hideSuggestions();
+            });
+        });
+    </script>
 {% endblock %}

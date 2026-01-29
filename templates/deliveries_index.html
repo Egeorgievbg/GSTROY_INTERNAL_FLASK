@@ -1,0 +1,945 @@
+{% extends "base.html" %}
+{% block title %}Доставки и приходи | GSTROY{% endblock %}
+
+{% block content %}
+
+<!-- Custom CSS за тази страница -->
+<style>
+    :root {
+        --gs-primary: #9BCF53; /* GSTROY Green accent estimate */
+        --gs-primary-hover: #8qb842;
+        --gs-dark: #1e293b;
+        --gs-gray: #f8f9fa;
+        --gs-text-muted: #64748b;
+        --card-radius: 16px;
+    }
+
+    /* Card Styling */
+    .gs-card {
+        border: none;
+        border-radius: var(--card-radius);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: #fff;
+    }
+    
+    .gs-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: var(--card-radius);
+        background-color: #f8fafc;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    .upload-zone:hover, .upload-zone:focus-within {
+        border-color: var(--gs-primary);
+        background-color: #f1f8e9; /* Very light green tint */
+    }
+
+    .upload-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .btn-gstroy {
+        background-color: var(--gs-primary);
+        color: #fff;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+    }
+    .btn-gstroy:hover {
+        background-color: #8cc443;
+        color: #fff;
+    }
+
+    /* Stats & Typography */
+    .stat-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gs-text-muted);
+        font-weight: 600;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--gs-dark);
+        line-height: 1.2;
+    }
+
+    /* Table Styling */
+    .table-custom thead th {
+        background-color: #f1f5f9;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        border-bottom: none;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    
+    .table-custom tbody td {
+        vertical-align: middle;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.95rem;
+    }
+
+    .table-custom tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    .bg-success-subtle { background-color: #dcfce7 !important; color: #166534 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; color: #991b1b !important; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; color: #92400e !important; }
+
+    .scan-task-card {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+    }
+    .scan-task-card .text-muted {
+        color: #94a3b8 !important;
+    }
+
+
+    /* AI Preloader Styles */
+    .ai-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(12, 15, 22, 0.45);
+        backdrop-filter: blur(8px) saturate(120%);
+        -webkit-backdrop-filter: blur(8px) saturate(120%);
+        /* use very high z-index to avoid stacking context issues */
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.28s ease, visibility 0.28s ease;
+        pointer-events: none;
+    }
+
+    /* Inline variant when placed inside the upload card */
+    .ai-overlay.inline {
+        position: absolute;
+        inset: 0;
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(6px);
+        border-radius: 16px;
+        pointer-events: all;
+        z-index: 50;
+    }
+
+    .ai-overlay::before {
+        content: "";
+        position: absolute;
+        inset: -30%;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(155, 207, 83, 0.18), transparent 55%),
+            radial-gradient(circle at 80% 70%, rgba(2, 132, 199, 0.12), transparent 60%);
+        filter: blur(30px);
+        animation: ai-float 10s ease-in-out infinite;
+    }
+
+    .ai-overlay::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: repeating-linear-gradient(
+            135deg,
+            rgba(15, 23, 42, 0.06) 0,
+            rgba(15, 23, 42, 0.06) 2px,
+            transparent 2px,
+            transparent 8px
+        );
+        opacity: 0.18;
+        mix-blend-mode: multiply;
+    }
+
+    .ai-overlay.active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: all;
+    }
+
+    .ai-panel {
+        position: relative;
+        z-index: 2;
+        width: min(980px, 92vw);
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 32px;
+        padding: 32px 36px;
+        border-radius: 28px;
+        /* make panel more solid and prominent */
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        box-shadow: 0 30px 80px rgba(2, 6, 23, 0.45);
+        backdrop-filter: blur(6px);
+        transform: translateY(6px) scale(0.98);
+        transition: transform 0.35s ease, opacity 0.35s ease;
+    }
+
+    .ai-overlay.active .ai-panel {
+        transform: translateY(0) scale(1);
+    }
+
+    .ai-panel {
+        position: relative;
+        z-index: 2;
+        width: min(980px, 92vw);
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 32px;
+        padding: 32px 36px;
+        border-radius: 28px;
+        background: rgba(255,255,255,0.98);
+        border: 1px solid rgba(15,23,42,0.06);
+        box-shadow: 0 30px 90px rgba(2,6,23,0.45);
+        backdrop-filter: blur(6px);
+    }
+
+    .ai-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .ai-visual {
+        position: relative;
+        width: 220px;
+        height: 220px;
+        margin: auto;
+    }
+
+    .ai-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: conic-gradient(
+            from 120deg,
+            rgba(155, 207, 83, 0.95),
+            rgba(217, 249, 157, 0.7),
+            rgba(15, 23, 42, 0.5),
+            rgba(155, 207, 83, 0.95)
+        );
+        -webkit-mask: radial-gradient(circle, transparent 55%, #000 58%);
+        mask: radial-gradient(circle, transparent 55%, #000 58%);
+        filter: drop-shadow(0 0 20px rgba(155, 207, 83, 0.35));
+        animation: ai-spin 6s linear infinite;
+    }
+
+    .ai-ring.ring-2 {
+        inset: 22px;
+        opacity: 0.6;
+        animation: ai-spin-reverse 10s linear infinite;
+    }
+
+    .ai-orbit {
+        position: absolute;
+        inset: 12px;
+        border-radius: 50%;
+        border: 1px dashed rgba(15, 23, 42, 0.16);
+        animation: ai-spin 12s linear infinite;
+    }
+
+    .ai-orbit.orbit-2 {
+        inset: 44px;
+        animation-direction: reverse;
+    }
+
+    .ai-dot {
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        width: 12px;
+        height: 12px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: var(--gs-primary);
+        box-shadow: 0 0 14px rgba(155, 207, 83, 0.9);
+    }
+
+    .ai-orbit.orbit-2 .ai-dot {
+        width: 8px;
+        height: 8px;
+        background: #e2e8f0;
+        box-shadow: 0 0 10px rgba(148, 163, 184, 0.7);
+    }
+
+    .ai-scan {
+        position: absolute;
+        left: -10%;
+        width: 120%;
+        height: 2px;
+        top: 50%;
+        background: linear-gradient(90deg, transparent, rgba(155, 207, 83, 0.95), transparent);
+        filter: blur(0.6px);
+        animation: ai-scan 2.6s ease-in-out infinite;
+    }
+
+    .ai-core {
+        position: absolute;
+        inset: 62px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow:
+            0 12px 30px rgba(15, 23, 42, 0.18),
+            inset 0 0 18px rgba(155, 207, 83, 0.25);
+    }
+
+    .ai-core i {
+        font-size: 1.8rem;
+        color: #0f172a;
+    }
+
+    .ai-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.06);
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .ai-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--gs-dark);
+        margin: 12px 0 6px;
+    }
+
+    .ai-status-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        font-size: 0.95rem;
+    }
+
+    .ai-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--gs-primary);
+        box-shadow: 0 0 0 rgba(155, 207, 83, 0.4);
+        animation: ai-dot-pulse 1.4s infinite;
+    }
+
+    #ai-status-text {
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .ai-stage {
+        margin-left: auto;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #16a34a;
+        background: rgba(22, 163, 74, 0.12);
+        padding: 4px 8px;
+        border-radius: 999px;
+    }
+
+    .ai-steps {
+        margin-top: 16px;
+        display: grid;
+        gap: 8px;
+    }
+
+    .ai-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+        color: #475569;
+    }
+
+    .ai-step-index {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e2e8f0;
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+    }
+
+    .ai-step.is-active {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .ai-step.is-active .ai-step-index {
+        background: var(--gs-primary);
+        color: #0f172a;
+        box-shadow: 0 6px 16px rgba(155, 207, 83, 0.35);
+    }
+
+    .ai-step.is-done {
+        color: #16a34a;
+    }
+
+    .ai-step.is-done .ai-step-index {
+        background: rgba(22, 163, 74, 0.15);
+        color: #16a34a;
+    }
+
+    .ai-progress {
+        margin-top: 16px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .ai-progress-bar {
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #9BCF53, #7dbf26, #d9f99d);
+        background-size: 200% 100%;
+        box-shadow: 0 0 20px rgba(155, 207, 83, 0.55);
+        animation: ai-progress-shimmer 1.8s linear infinite;
+        transition: width 0.4s ease;
+    }
+
+    .ai-hint {
+        margin-top: 10px;
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    /* make sure decorative pseudo-elements don't block clicks */
+    .ai-overlay::before,
+    .ai-overlay::after { pointer-events: none; }
+
+    @keyframes ai-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes ai-spin-reverse {
+        to {
+            transform: rotate(-360deg);
+        }
+    }
+
+    @keyframes ai-scan {
+        0% {
+            transform: translateY(-60px);
+            opacity: 0;
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(60px);
+            opacity: 0;
+        }
+    }
+
+    @keyframes ai-float {
+        0%, 100% {
+            transform: translate3d(0, 0, 0);
+        }
+        50% {
+            transform: translate3d(0, -18px, 0);
+        }
+    }
+
+    @keyframes ai-dot-pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(155, 207, 83, 0.4);
+        }
+        70% {
+            box-shadow: 0 0 0 12px rgba(155, 207, 83, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(155, 207, 83, 0);
+        }
+    }
+
+    @keyframes ai-progress-shimmer {
+        0% {
+            background-position: 0% 50%;
+        }
+        100% {
+            background-position: 200% 50%;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .ai-panel {
+            grid-template-columns: 1fr;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .ai-visual {
+            width: 180px;
+            height: 180px;
+        }
+
+        .ai-status-line {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .ai-steps {
+            text-align: left;
+        }
+    }
+
+</style>
+
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-5">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-2">Доставки и приходи</h1>
+            <p class="text-muted mb-0" style="max-width: 600px;">
+                Централизиран хъб за управление на входящи фактури. Качи файл, AI ще разчете данните и ще подготви стоката за заприхождаване в склада.
+            </p>
+        </div>
+        <a href="{{ url_for('deliveries.deliveries_index') }}" class="btn btn-light border shadow-sm">
+            <i class="bi bi-arrow-clockwise me-2"></i>Обнови
+        </a>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <!-- Left Column: Upload Area -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="gs-card h-100 p-4 d-flex flex-column">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h5 class="fw-bold text-dark mb-0">Нова фактура</h5>
+                    <span class="badge bg-light text-dark border">AI OCR Ready</span>
+                </div>
+                
+                <form method="post" action="{{ url_for('deliveries.deliveries_index') }}" enctype="multipart/form-data" class="flex-grow-1 d-flex flex-column" id="invoice-upload-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <!-- Styled Upload Zone -->
+                    <div class="upload-zone flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center p-4 mb-3" id="invoice-upload-zone">
+                        <input type="file" name="invoice_file" class="upload-input" accept=".pdf,.png,.jpg,.jpeg" required onchange="document.getElementById('fileNameDisplay').textContent = this.files[0].name;">
+                        
+                        <div class="mb-3 p-3 rounded-circle bg-white shadow-sm text-primary">
+                            <i class="bi bi-cloud-arrow-up fs-2" style="color: var(--gs-primary);"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark">Натисни или провлачи файл</h6>
+                        <p class="text-muted small mb-0">Поддържани формати: PDF, JPG, PNG</p>
+                        <div id="fileNameDisplay" class="mt-3 badge bg-primary-subtle text-primary fw-normal"></div>
+                        <!-- Inline AI preloader will be moved here on submit -->
+                        <!-- (original full-screen preloader is present at page bottom) -->
+                    </div>
+
+                    <button class="btn btn-gstroy w-100 py-3 shadow-sm" type="submit">
+                        <i class="bi bi-magic me-2"></i>Разчети и зареди
+                    </button>
+                    <div class="text-center mt-3">
+                        <small class="text-muted" style="font-size: 0.75rem;">
+                            <i class="bi bi-shield-check me-1"></i>Сигурна OCR обработка
+                        </small>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Column: Stats & Quick Actions -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="row g-4 h-100">
+                <!-- Stat Card 1 -->
+                <div class="col-md-6">
+                    <div class="gs-card p-4 h-100 d-flex flex-column justify-content-between">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <div class="stat-label mb-2">Общо обработени</div>
+                                <div class="stat-value">{{ invoices|length }}</div>
+                            </div>
+                            <div class="p-2 rounded bg-light text-dark">
+                                <i class="bi bi-file-earmark-text fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3 text-muted small">фактури в системата</div>
+                    </div>
+                </div>
+
+                <!-- Stat Card 2 -->
+                <div class="col-md-6">
+                    <div class="gs-card p-4 h-100 d-flex flex-column justify-content-between">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <div class="stat-label mb-2">Последна активност</div>
+                                <div class="h5 fw-bold text-dark mb-0">
+                                    {% if invoices %}
+                                        {{ invoices[0].created_at.strftime('%d.%m %H:%M') }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="p-2 rounded bg-light text-dark">
+                                <i class="bi bi-clock-history fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3 text-muted small">дата на качване</div>
+                    </div>
+                </div>
+
+                <!-- Scan Task Promo (Dark Card) -->
+                <div class="col-12">
+                    <div class="gs-card scan-task-card p-4 h-100">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle bg-white/10 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(255,255,255,0.1);">
+                                        <i class="bi bi-upc-scan fs-4 text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-1">Директно сканиране</h5>
+                                        <p class="text-muted mb-0 small">Генерирай задача за склада (Scan Task) автоматично след разчитане на фактурата, за да засичат наличностите веднага.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                <!-- Декоративен елемент или бутон, ако е нужно -->
+                                <i class="bi bi-arrow-right text-white opacity-50 display-6"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="gs-card">
+        <div class="p-4 border-bottom border-light">
+            <h5 class="fw-bold text-dark mb-0">История на приходите</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-custom mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4">ID / Дата</th>
+                        <th>Доставчик</th>
+                        <th>Фактура №</th>
+                        <th class="text-center">Артикули</th>
+                        <th class="text-center">Статус</th>
+                        <th class="text-end pe-4">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for invoice in invoices %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">INV-{{ invoice.id }}</div>
+                            <div class="text-muted small">
+                                {{ invoice.issue_date.strftime('%d.%m.%Y') if invoice.issue_date else invoice.created_at.strftime('%d.%m.%Y') }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if invoice.vendor_name %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-shop text-muted"></i>
+                                    <span class="fw-semibold text-dark">{{ invoice.vendor_name }}</span>
+                                </div>
+                            {% else %}
+                                <span class="text-muted fst-italic">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-file-earmark-text text-muted"></i>
+                                <span>{{ invoice.invoice_number or '—' }}</span>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <div>
+                                <span class="badge bg-light text-dark border">
+                                    {{ invoice_stats[invoice.id].total_lines if invoice.id in invoice_stats else invoice.lines|length }}
+                                </span>
+                            </div>
+                            <div class="text-muted small mt-1">
+                                {% if invoice.id in invoice_stats %}
+                                    <span title="Процент мачнати редове">{{ invoice_stats[invoice.id].match_pct_lines }}%</span>
+                                    &nbsp;/&nbsp;
+                                    <span title="Процент мачнати количества">{{ invoice_stats[invoice.id].match_pct_qty }}%</span>
+                                {% endif %}
+                            </div>
+                            {% if invoice.id in invoice_stats and invoice_stats[invoice.id].top_unmatched %}
+                                <div class="text-muted small mt-1">Топ непресечени: {{ invoice_stats[invoice.id].top_unmatched|join(', ') }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if invoice.ocr_status == 'success' %}
+                                <span class="status-badge bg-success-subtle">
+                                    <i class="bi bi-check-circle-fill me-1"></i>READY
+                                </span>
+                            {% elif invoice.ocr_status == 'failed' %}
+                                <span class="status-badge bg-danger-subtle">
+                                    <i class="bi bi-x-circle-fill me-1"></i>FAILED
+                                </span>
+                            {% else %}
+                                <span class="status-badge bg-warning-subtle">
+                                    <i class="bi bi-hourglass-split me-1"></i>PROCESSING
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('deliveries.delivery_detail', invoice_id=invoice.id) }}" class="btn btn-sm btn-light border fw-semibold">
+                                Преглед
+                            </a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>
+                            Няма записани приходи все още.
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- AI Preloader Overlay -->
+<div id="ai-preloader" class="ai-overlay d-none">
+    <div class="ai-panel">
+        <div class="ai-visual">
+            <div class="ai-ring"></div>
+            <div class="ai-ring ring-2"></div>
+            <div class="ai-orbit orbit-1"><span class="ai-dot"></span></div>
+            <div class="ai-orbit orbit-2"><span class="ai-dot"></span></div>
+            <div class="ai-scan"></div>
+            <div class="ai-core">
+                <i class="bi bi-cpu-fill"></i>
+            </div>
+        </div>
+        <div class="ai-copy">
+            <div class="ai-pill"><i class="bi bi-stars"></i> GSTROY AI</div>
+            <h3 class="ai-title">Интелигентна обработка на фактура</h3>
+            <div class="ai-status-line">
+                <span class="ai-status-dot"></span>
+                <span id="ai-status-text" class="fw-semibold">Качване и запазване на файла...</span>
+                <span class="ai-stage" id="ai-stage-count">1/9</span>
+            </div>
+            <div class="ai-steps">
+                <div class="ai-step is-active"><span class="ai-step-index">01</span>Качване и запазване на файла</div>
+                <div class="ai-step"><span class="ai-step-index">02</span>Валидация и сигурно съхранение</div>
+                <div class="ai-step"><span class="ai-step-index">03</span>Подготовка на документа за OCR</div>
+                <div class="ai-step"><span class="ai-step-index">04</span>Изпращане към AI модел</div>
+                <div class="ai-step"><span class="ai-step-index">05</span>Разчитане на хедър и доставчик</div>
+                <div class="ai-step"><span class="ai-step-index">06</span>Извличане на редове и цени</div>
+                <div class="ai-step"><span class="ai-step-index">07</span>Нормализиране и почистване</div>
+                <div class="ai-step"><span class="ai-step-index">08</span>Мачване по кат. номер и баркод</div>
+                <div class="ai-step"><span class="ai-step-index">09</span>Запис в системата</div>
+            </div>
+            <div class="ai-progress">
+                <div id="ai-progress-bar" class="ai-progress-bar"></div>
+            </div>
+            <div class="ai-hint">Средно време: 3–10 сек • не затваряйте страницата</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.querySelector('.upload-zone');
+    const fileInput = document.querySelector('.upload-input');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+    if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+    }
+
+    function highlight() {
+        if (!dropZone) return;
+        dropZone.style.borderColor = 'var(--gs-primary)';
+        dropZone.style.backgroundColor = '#f1f8e9';
+    }
+
+    function unhighlight() {
+        if (!dropZone) return;
+        dropZone.style.borderColor = '#cbd5e1';
+        dropZone.style.backgroundColor = '#f8fafc';
+    }
+
+    const uploadForm = document.getElementById('invoice-upload-form');
+    const preloader = document.getElementById('ai-preloader');
+    const uploadZoneEl = document.getElementById('invoice-upload-zone');
+    const statusText = document.getElementById('ai-status-text');
+    const stepEls = document.querySelectorAll('.ai-step');
+    const progressBar = document.getElementById('ai-progress-bar');
+    const stageCount = document.getElementById('ai-stage-count');
+
+    const messages = [
+        'Качване и запазване на файла...',
+        'Валидация и сигурно съхранение...',
+        'Подготовка на документа за OCR...',
+        'Изпращане към AI модел...',
+        'Разчитане на хедър и доставчик...',
+        'Извличане на редове, количества и цени...',
+        'Нормализиране и почистване на данни...',
+        'Мачване с каталога по кат. номер и баркод...',
+        'Запис в системата и финализиране...'
+    ];
+    const fallbackMessage = 'Обработката продължава...';
+
+    function updateStep(stepIndex) {
+        const maxIndex = messages.length - 1;
+        const activeIndex = Math.min(stepIndex, maxIndex);
+
+        stepEls.forEach((el, idx) => {
+            el.classList.toggle('is-active', idx === activeIndex);
+            el.classList.toggle('is-done', idx < activeIndex);
+        });
+
+        if (stageCount) {
+            const stage = Math.min(stepIndex + 1, messages.length);
+            stageCount.textContent = `${stage}/${messages.length}`;
+        }
+
+        if (progressBar) {
+            const percent = maxIndex > 0 ? (activeIndex / maxIndex) * 100 : 100;
+            progressBar.style.width = `${Math.min(percent, 100)}%`;
+        }
+
+        if (statusText) {
+            statusText.textContent = stepIndex < messages.length ? messages[stepIndex] : fallbackMessage;
+        }
+    }
+
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            if (!fileInput || !fileInput.value) {
+                e.preventDefault();
+                alert('Моля, изберете файл първо!');
+                return;
+            }
+
+            if (fileNameDisplay && fileInput.files && fileInput.files[0]) {
+                fileNameDisplay.textContent = fileInput.files[0].name;
+            }
+
+            if (preloader) {
+                // Append to body and make visible with ARIA attributes and overflow lock
+                try {
+                    if (!document.body.contains(preloader)) {
+                        document.body.appendChild(preloader);
+                    }
+                } catch (err) {
+                    console.warn('Could not append preloader to body', err);
+                }
+                preloader.classList.remove('inline');
+                preloader.classList.remove('d-none');
+                preloader.setAttribute('aria-hidden', 'false');
+                // force reflow then activate for transition
+                void preloader.offsetWidth;
+                requestAnimationFrame(() => preloader.classList.add('active'));
+                // prevent page scroll while preloader visible (add to both html and body)
+                try {
+                    document.documentElement.style.overflow = 'hidden';
+                    document.body.style.overflow = 'hidden';
+                } catch (e) {}
+                // In case navigation doesn't happen, restore overflow after 30s as a safety
+                const restoreTimeout = setTimeout(() => {
+                    try { document.documentElement.style.overflow = ''; document.body.style.overflow = ''; } catch (e) {}
+                }, 30000);
+                window.addEventListener('load', function restoreOverflow() {
+                    try {
+                        document.documentElement.style.overflow = '';
+                        document.body.style.overflow = '';
+                    } catch (e) {}
+                    clearTimeout(restoreTimeout);
+                    window.removeEventListener('load', restoreOverflow);
+                });
+            }
+
+            if (statusText) {
+                let step = 0;
+                updateStep(step);
+                const interval = setInterval(() => {
+                    statusText.style.opacity = 0;
+                    setTimeout(() => {
+                        updateStep(step);
+                        statusText.style.opacity = 1;
+                        step += 1;
+                    }, 200);
+                }, 1500);
+            }
+            // expose a helper to hide preloader (useful when testing or for AJAX flows)
+            window.hideInvoicePreloader = function() {
+                try {
+                    if (preloader) {
+                        preloader.classList.remove('active');
+                        preloader.setAttribute('aria-hidden', 'true');
+                        setTimeout(() => {
+                            preloader.classList.add('d-none');
+                            document.documentElement.style.overflow = '';
+                            document.body.style.overflow = '';
+                        }, 350);
+                    }
+                } catch (e) { console.warn('hideInvoicePreloader failed', e); }
+            }
+        });
+    }
+</script>
+
+{% endblock %}

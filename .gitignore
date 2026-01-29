@@ -1,0 +1,25 @@
+# .gitignore
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+*.env
+# VSCode
+.vscode/
+# OS
+.DS_Store
+Thumbs.db
+# Archives
+*.tar.gz
+*.zip
+*.bak
+# PDF/Images
+*.pdf
+*.png
+# Uploads
+static/uploads/
+# Local config
+*.local

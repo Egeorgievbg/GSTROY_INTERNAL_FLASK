@@ -34,6 +34,7 @@
       const existingItems = JSON.parse(document.getElementById('existing-items-json')?.textContent || '[]');
       const itemsMap = new Map();
       let pendingProduct = null;
+      const staticBase = "{{ url_for('static', filename='') }}";
 
       const UNIT_TOKEN_MAP = (() => {
         const aliases = {
@@ -54,6 +55,13 @@
         if (!value) return null;
         const token = value.toString().replace(/[\s\.\-]/g, '').toLowerCase();
         return UNIT_TOKEN_MAP.get(token) || null;
+      }
+
+      function normalizeImageUrl(url) {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        if (url.startsWith('/static/')) return url;
+        return staticBase + url.replace(/^\\//, '');
       }
       function isPiecesUnit(value) { return canonicalUnit(value) === 'pieces'; }
       function isPackageUnit(value) { return canonicalUnit(value) === 'packages'; }
@@ -220,7 +228,7 @@
           unit: meta.unitLabel,
           unitMode: meta.unitMode,
           quantity: newQty,
-          imageUrl: meta.imageUrl || product.image_url || (existing ? existing.imageUrl : null),
+          imageUrl: normalizeImageUrl(meta.imageUrl || product.image_url || (existing ? existing.imageUrl : null)),
           item_number: key,
         });
         renderRow(key);
@@ -275,8 +283,9 @@
         previewSku.textContent = product.item_number;
         previewUnits.textContent = `${product.main_unit || '-'} / ${product.secondary_unit || '-'}`;
         
-        if (product.image_url) {
-          previewImage.src = product.image_url;
+        const previewUrl = normalizeImageUrl(product.image_url);
+        if (previewUrl) {
+          previewImage.src = previewUrl;
           previewImage.classList.remove('d-none');
         } else {
           previewImage.classList.add('d-none');
@@ -320,7 +329,7 @@
         upsertItem(pendingProduct, converted, {
           unitLabel: option.unitLabel,
           unitMode: option.unitMode,
-          imageUrl: pendingProduct.image_url,
+          imageUrl: normalizeImageUrl(pendingProduct.image_url),
         });
         
         hidePreview();
@@ -439,7 +448,7 @@
           unit: item.unit || 'бр.',
           unitMode,
           quantity: parseFloat(item.quantity),
-          imageUrl: item.image_url,
+          imageUrl: normalizeImageUrl(item.image_url),
           item_number: item.item_number,
         });
         renderRow(item.item_number);

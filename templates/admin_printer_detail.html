@@ -38,6 +38,10 @@
                         <div class="small text-muted">Ще се използва преди URL-а на склада.</div>
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label small text-uppercase text-muted">Access key</label>
+                        <input type="text" class="form-control" name="access_key" value="{{ printer.access_key or '' }}" placeholder="Optional key">
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label small text-uppercase text-muted">Състояние</label>
                         <div class="d-flex gap-3 align-items-center">
                             <div class="form-check form-switch mb-0">

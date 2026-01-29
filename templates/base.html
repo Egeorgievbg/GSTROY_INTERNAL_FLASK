@@ -17,6 +17,116 @@
     <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 
+    <style>
+      .search-spotlight-trigger {
+        border: none;
+        background: transparent;
+        padding: 0.35rem;
+        border-radius: 10px;
+        color: #94a3b8;
+        transition: color 0.2s ease, background 0.2s ease;
+      }
+      .search-spotlight-trigger:hover { color: #badc58; background: #f8fafc; }
+      .search-spotlight-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        backdrop-filter: blur(8px);
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 12vh 1rem 1rem;
+        z-index: 2000;
+      }
+      .search-spotlight-overlay.is-open { display: flex; }
+      .search-spotlight-card {
+        width: min(760px, 92vw);
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        overflow: hidden;
+        animation: spotlightFade 0.18s ease-out;
+      }
+      @keyframes spotlightFade {
+        from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .search-spotlight-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 1.1rem 1.25rem;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+      }
+      .search-spotlight-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .search-spotlight-clear {
+        border: none;
+        background: #f1f5f9;
+        color: #64748b;
+        border-radius: 999px;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.85rem;
+        transition: color 0.2s ease, background 0.2s ease;
+      }
+      .search-spotlight-clear:hover { color: #0f172a; background: #e2e8f0; }
+      .search-spotlight-results {
+        max-height: 340px;
+        overflow-y: auto;
+        padding: 0.6rem 0.8rem 0.9rem;
+      }
+      .search-spotlight-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 12px;
+        border-left: 3px solid transparent;
+        transition: background 0.2s ease, border-color 0.2s ease;
+        cursor: pointer;
+      }
+      .search-spotlight-item:hover,
+      .search-spotlight-item.is-active {
+        background: #f0fdf4;
+        border-color: #badc58;
+      }
+      .search-spotlight-title { font-weight: 600; color: #0f172a; }
+      .search-spotlight-sub { font-size: 0.82rem; color: #64748b; }
+      .search-spotlight-sku {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.78rem;
+        background: #eef2f7;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        color: #334155;
+        white-space: nowrap;
+      }
+      .search-spotlight-empty {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.85rem 0.9rem;
+        color: #64748b;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px dashed rgba(148, 163, 184, 0.4);
+      }
+      .search-spotlight-results::-webkit-scrollbar { width: 8px; }
+      .search-spotlight-results::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.45);
+        border-radius: 999px;
+      }
+    </style>
+
     <!-- ЕТО ТОВА ЛИПСВАШЕ: Тук ще се зарежда admin.css -->
     {% block extra_styles %}{% endblock %}
     
@@ -81,7 +191,7 @@
             
             <!-- Dropdown Menu -->
             <li class="nav-item dropdown">
-                <a class="nav-link-modern dropdown-toggle {{ 'active' if 'stock_orders' in request.endpoint or 'ppp' in request.endpoint }}" href="#" data-bs-toggle="dropdown">
+                <a class="nav-link-modern dropdown-toggle {{ 'active' if 'stock_orders' in request.endpoint or 'ppp' in request.endpoint or 'deliveries' in request.endpoint }}" href="#" data-bs-toggle="dropdown">
                     <i class="bi bi-clipboard-data"></i> Нареждания
                 </a>
                 <ul class="dropdown-menu shadow-lg border-0 rounded-4 mt-3 p-2 animate-slide-up" style="min-width: 220px;">
@@ -95,6 +205,12 @@
                         <a class="dropdown-item rounded-3 py-2 mb-1" href="{{ url_for('orders.stock_orders_assigned') }}">
                             <div class="fw-bold text-dark">Моите задачи</div>
                             <div class="small text-muted">Личен панел</div>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item rounded-3 py-2 mb-1" href="{{ url_for('deliveries.deliveries_index') }}">
+                            <div class="fw-bold text-dark">Доставки и приходи</div>
+                            <div class="small text-muted">OCR и заприхождаване</div>
                         </a>
                     </li>
                     <li><hr class="dropdown-divider my-1 opacity-25"></li>
@@ -120,6 +236,12 @@
         <!-- User Profile (Desktop Only) -->
         <div class="d-none d-lg-flex align-items-center gap-3">
             {% if current_user and current_user.is_authenticated %}
+              <button class="search-spotlight-trigger" id="searchSpotlightTrigger" title="Search (Ctrl+K)" aria-label="Search (Ctrl+K)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle>
+                  <path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                </svg>
+              </button>
               <div class="dropdown">
                 <a href="#" class="d-flex align-items-center text-decoration-none" data-bs-toggle="dropdown">
                   <div class="rounded-circle bg-dark text-white d-flex align-items-center justify-content-center fw-bold shadow-sm border border-2 border-white" 
@@ -202,6 +324,9 @@
                     </a>
                     <a class="mobile-menu-link {{ 'active' if 'ppp' in request.endpoint }}" href="{{ url_for('orders.ppp_documents') }}">
                         <i class="bi bi-file-earmark-text"></i> ППП Документи
+                    </a>
+                    <a class="mobile-menu-link {{ 'active' if 'deliveries' in request.endpoint }}" href="{{ url_for('deliveries.deliveries_index') }}">
+                        <i class="bi bi-box-arrow-in-down"></i> Доставки и приходи
                     </a>
                     <div class="border-top my-1"></div>
                     <a class="mobile-menu-link {{ 'active' if 'scan_task' in request.endpoint }}" href="{{ url_for('scanning.scan_task_list') }}">
@@ -321,6 +446,23 @@
       </div>
     </div>
 
+    <div class="search-spotlight-overlay" id="searchSpotlightOverlay" aria-hidden="true">
+      <div class="search-spotlight-card" role="dialog" aria-modal="true" aria-label="Global search">
+        <div class="search-spotlight-input-wrap">
+          <i class="bi bi-search fs-4 text-muted"></i>
+          <input
+            type="text"
+            class="search-spotlight-input"
+            id="searchSpotlightInput"
+            placeholder="Търсене на продукти..."
+            autocomplete="off"
+          />
+          <button type="button" class="search-spotlight-clear" id="searchSpotlightClear">Clear</button>
+        </div>
+        <div class="search-spotlight-results" id="searchSpotlightResults" role="listbox"></div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       const appCsrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -366,6 +508,127 @@
             return origFetch(input, opts);
         };
       })();
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const trigger = document.getElementById('searchSpotlightTrigger');
+        const overlay = document.getElementById('searchSpotlightOverlay');
+        const input = document.getElementById('searchSpotlightInput');
+        const results = document.getElementById('searchSpotlightResults');
+        const clearBtn = document.getElementById('searchSpotlightClear');
+        if (!trigger || !overlay || !input || !results || !clearBtn) return;
+
+        let debounceTimer = null;
+        let activeIndex = -1;
+        let currentItems = [];
+
+        const openSpotlight = () => {
+          overlay.classList.add('is-open');
+          overlay.setAttribute('aria-hidden', 'false');
+          input.focus();
+        };
+        const closeSpotlight = () => {
+          overlay.classList.remove('is-open');
+          overlay.setAttribute('aria-hidden', 'true');
+          input.value = '';
+          results.innerHTML = '';
+          activeIndex = -1;
+          currentItems = [];
+        };
+
+        const renderEmpty = (label) => {
+          results.innerHTML = `
+            <div class="search-spotlight-empty">
+              <i class="bi bi-search"></i>
+              <span>${label}</span>
+            </div>
+          `;
+        };
+
+        const renderItems = (items) => {
+          currentItems = items || [];
+          if (!currentItems.length) {
+            renderEmpty('Няма намерени резултати');
+            return;
+          }
+          results.innerHTML = currentItems.map((item, idx) => `
+            <div class="search-spotlight-item" data-index="${idx}" data-id="${item.id}">
+              <div>
+                <div class="search-spotlight-title">${item.name || 'Без име'}</div>
+                <div class="search-spotlight-sub">${item.brand || 'Без марка'}</div>
+              </div>
+              <div class="search-spotlight-sku">${item.item_number || '-'}</div>
+            </div>
+          `).join('');
+        };
+
+        const fetchResults = (query) => {
+          if (!query) { results.innerHTML = ''; return; }
+          fetch(`/products/suggest?q=${encodeURIComponent(query)}&limit=8`)
+            .then(r => r.json())
+            .then(data => renderItems(data.items || []))
+            .catch(() => renderEmpty('Проблем при търсенето'));
+        };
+
+        const highlightItem = (index) => {
+          const items = results.querySelectorAll('.search-spotlight-item');
+          items.forEach(el => el.classList.remove('is-active'));
+          if (index >= 0 && items[index]) {
+            items[index].classList.add('is-active');
+            items[index].scrollIntoView({ block: 'nearest' });
+          }
+        };
+
+        trigger.addEventListener('click', () => openSpotlight());
+        clearBtn.addEventListener('click', () => {
+          input.value = '';
+          results.innerHTML = '';
+          input.focus();
+        });
+
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) closeSpotlight();
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            if (overlay.classList.contains('is-open')) closeSpotlight();
+            else openSpotlight();
+          } else if (e.key === 'Escape' && overlay.classList.contains('is-open')) {
+            closeSpotlight();
+          }
+        });
+
+        input.addEventListener('input', (e) => {
+          const value = e.target.value.trim();
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => fetchResults(value), 300);
+        });
+
+        input.addEventListener('keydown', (e) => {
+          const items = results.querySelectorAll('.search-spotlight-item');
+          if (e.key === 'ArrowDown' && items.length) {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % items.length;
+            highlightItem(activeIndex);
+          } else if (e.key === 'ArrowUp' && items.length) {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + items.length) % items.length;
+            highlightItem(activeIndex);
+          } else if (e.key === 'Enter') {
+            if (activeIndex >= 0 && currentItems[activeIndex]) {
+              window.location.href = `/product/${currentItems[activeIndex].id}`;
+            }
+          }
+        });
+
+        results.addEventListener('click', (e) => {
+          const item = e.target.closest('.search-spotlight-item');
+          if (!item) return;
+          const id = item.getAttribute('data-id');
+          if (id) window.location.href = `/product/${id}`;
+        });
+      });
     </script>
     {% block scripts %}{% endblock %}
   </body>

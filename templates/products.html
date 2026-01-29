@@ -2,6 +2,37 @@
 {% block title %}Каталог | GSTROY{% endblock %}
 
 {% block content %}
+<style>
+    .search-suggest-wrapper { position: relative; }
+    .search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 6px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        max-height: 260px;
+        overflow-y: auto;
+        z-index: 1000;
+    }
+    .search-suggestion-item {
+        width: 100%;
+        text-align: left;
+        padding: 8px 12px;
+        border: 0;
+        background: transparent;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .search-suggestion-item:hover { background: #f8fafc; }
+    .search-suggestion-title { font-weight: 600; color: #0f172a; font-size: 0.9rem; }
+    .search-suggestion-meta { font-size: 0.75rem; color: #64748b; }
+    .search-suggestion-empty { padding: 8px 12px; font-size: 0.8rem; color: #94a3b8; }
+</style>
 
 <!-- MOBILE FILTER BUTTON -->
 <div class="d-lg-none position-fixed start-50 translate-middle-x z-3" style="bottom: 100px;">
@@ -22,9 +53,10 @@
             <form>
                 <div class="mb-4">
                     <div class="filter-heading">Ключова дума</div>
-                    <div class="input-group-aero">
-                        <input type="text" class="input-aero ps-5" name="name" value="{{ name_query }}" placeholder="Търси...">
+                    <div class="input-group-aero search-suggest-wrapper">
+                        <input type="text" class="input-aero ps-5" id="product-search-input" name="name" value="{{ name_query }}" placeholder="Търси..." autocomplete="off" data-suggest-url="{{ url_for('products.product_suggest') }}">
                         <i class="bi bi-search input-icon"></i>
+                        <div id="product-search-suggestions" class="search-suggestions d-none"></div>
                     </div>
                 </div>
 
@@ -43,25 +75,25 @@
                 <div class="mb-4">
                     <div class="filter-heading mb-3">Категории</div>
                     <div class="d-flex flex-column category-container ps-1">
-                        {% for main, data in category_tree.items() %}
+                        {% for node in category_tree %}
                             <div class="tree-item">
-                                <div class="tree-trigger" data-bs-toggle="collapse" data-bs-target="#tree-{{ loop.index }}" aria-expanded="false">
-                                    <span>{{ main }}</span>
-                                    <i class="bi bi-chevron-down tree-icon"></i>
+                                <div class="tree-trigger d-flex align-items-center justify-content-between">
+                                    <a href="{{ url_for('products.category_page', slug=node.slug) }}" class="text-decoration-none text-reset">{{ node.name }}</a>
+                                    {% if node.children %}
+                                        <button class="btn btn-sm p-0 border-0 text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#tree-{{ loop.index }}" aria-expanded="false">
+                                            <i class="bi bi-chevron-down tree-icon"></i>
+                                        </button>
+                                    {% endif %}
                                 </div>
+                                {% if node.children %}
                                 <div class="collapse" id="tree-{{ loop.index }}">
                                     <div class="tree-submenu">
-                                        {% if data is mapping and data.children %}
-                                            {% for sub in data.children.keys() %}
-                                                <a href="#" class="sub-link">{{ sub|capitalize }}</a>
-                                            {% endfor %}
-                                        {% elif data is iterable and data is not string %}
-                                            {% for sub in data %}
-                                                <a href="#" class="sub-link">{{ sub|capitalize }}</a>
-                                            {% endfor %}
-                                        {% endif %}
+                                        {% for child in node.children %}
+                                            <a href="{{ url_for('products.category_page', slug=child.slug) }}" class="sub-link">{{ child.name }}</a>
+                                        {% endfor %}
                                     </div>
                                 </div>
+                                {% endif %}
                             </div>
                         {% endfor %}
                     </div>
@@ -220,6 +252,76 @@ document.addEventListener('DOMContentLoaded', function() {
                 btnText.textContent = 'Грешка';
             });
     });
+
+    const searchInput = document.getElementById('product-search-input');
+    const suggestions = document.getElementById('product-search-suggestions');
+    if (searchInput && suggestions) {
+        const suggestUrl = searchInput.dataset.suggestUrl;
+        let timer = null;
+
+        const hideSuggestions = () => {
+            suggestions.classList.add('d-none');
+            suggestions.innerHTML = '';
+        };
+
+        const renderSuggestions = (items) => {
+            if (!items.length) {
+                suggestions.innerHTML = '<div class="search-suggestion-empty">Няма резултати</div>';
+                suggestions.classList.remove('d-none');
+                return;
+            }
+            suggestions.innerHTML = items.map((item) => {
+                const code = item.item_number || '';
+                const name = item.name || code;
+                const meta = [item.brand, item.category].filter(Boolean).join(' • ');
+                const metaLine = meta ? `${code} • ${meta}` : code;
+                return `
+                    <button type="button" class="search-suggestion-item" data-value="${code}">
+                        <span class="search-suggestion-title">${name}</span>
+                        <span class="search-suggestion-meta">${metaLine}</span>
+                    </button>
+                `;
+            }).join('');
+            suggestions.classList.remove('d-none');
+        };
+
+        const fetchSuggestions = (value) => {
+            fetch(`${suggestUrl}?q=${encodeURIComponent(value)}`)
+                .then((res) => res.json())
+                .then((data) => renderSuggestions(data.items || []))
+                .catch(() => hideSuggestions());
+        };
+
+        searchInput.addEventListener('input', () => {
+            const value = searchInput.value.trim();
+            if (value.length < 2) {
+                hideSuggestions();
+                return;
+            }
+            clearTimeout(timer);
+            timer = setTimeout(() => fetchSuggestions(value), 250);
+        });
+
+        suggestions.addEventListener('click', (event) => {
+            const btn = event.target.closest('.search-suggestion-item');
+            if (!btn) {
+                return;
+            }
+            searchInput.value = btn.dataset.value || searchInput.value;
+            const form = searchInput.closest('form');
+            if (form) {
+                form.submit();
+            }
+            hideSuggestions();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (event.target === searchInput || suggestions.contains(event.target)) {
+                return;
+            }
+            hideSuggestions();
+        });
+    }
 });
 </script>
 {% endblock %}

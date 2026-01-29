@@ -206,6 +206,169 @@ class Product(Base):
     service_point = relationship("ServicePoint", back_populates="products")
     brand_entity = relationship("Brand", back_populates="products")
     category_entity = relationship("Category", back_populates="products")
+    pricemind_snapshots = relationship("PricemindSnapshot", back_populates="product")
+
+
+class MasterProduct(Base):
+    __tablename__ = "master_products"
+
+    id = Column(Integer, primary_key=True)
+    internal_id = Column(Integer, unique=True, index=True, nullable=False)
+    name = Column(String(255))
+    barcode = Column(String(128), index=True)
+    vendor_code = Column(String(128), index=True)
+    measure_unit = Column(String(64))
+    manufacturer = Column(String(255))
+    group_name = Column(String(255))
+    last_updated = Column(DateTime, default=datetime.utcnow, nullable=False, onupdate=datetime.utcnow)
+
+
+class SyncLog(Base):
+    __tablename__ = "sync_logs"
+
+    id = Column(Integer, primary_key=True)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime)
+    status = Column(String(32), default="IN_PROGRESS", nullable=False)
+    total_fetched = Column(Integer, default=0)
+    created_count = Column(Integer, default=0)
+    updated_count = Column(Integer, default=0)
+    error_message = Column(Text)
+    triggered_by = Column(String(255))
+
+
+class PricemindSyncLog(Base):
+    __tablename__ = "pricemind_sync_logs"
+
+    id = Column(Integer, primary_key=True)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime)
+    status = Column(String(32), default="IN_PROGRESS", nullable=False)
+    total_rows = Column(Integer, default=0)
+    matched_count = Column(Integer, default=0)
+    unmatched_count = Column(Integer, default=0)
+    updated_count = Column(Integer, default=0)
+    error_message = Column(Text)
+    triggered_by = Column(String(255))
+
+    snapshots = relationship(
+        "PricemindSnapshot",
+        back_populates="sync_log",
+        cascade="all, delete-orphan",
+    )
+
+
+class PricemindSnapshot(Base):
+    __tablename__ = "pricemind_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    sync_log_id = Column(Integer, ForeignKey("pricemind_sync_logs.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    sku = Column(String(64), index=True, nullable=False)
+    catalog_number = Column(String(128))
+    title = Column(String(255))
+    brand = Column(String(128))
+    categories = Column(Text)
+    labels = Column(Text)
+    image_url = Column(String(255))
+    my_price = Column(Float)
+    my_regular_price = Column(Float)
+    my_special_price = Column(Float)
+    my_price_stock = Column(Integer)
+    my_price_retrieved_at = Column(DateTime)
+    price_difference = Column(String(32))
+    lowest_price = Column(Float)
+    lowest_price_competitor = Column(String(128))
+    raw_payload = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    sync_log = relationship("PricemindSyncLog", back_populates="snapshots")
+    product = relationship("Product", back_populates="pricemind_snapshots")
+    competitor_prices = relationship(
+        "PricemindCompetitorPrice",
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+    )
+
+
+class PricemindCompetitorPrice(Base):
+    __tablename__ = "pricemind_competitor_prices"
+
+    id = Column(Integer, primary_key=True)
+    snapshot_id = Column(Integer, ForeignKey("pricemind_snapshots.id"), nullable=False)
+    competitor = Column(String(128), nullable=False)
+    offer_price = Column(Float)
+    regular_price = Column(Float)
+    special_price = Column(Float)
+    stock = Column(Integer)
+    retrieved_at = Column(DateTime)
+
+    snapshot = relationship("PricemindSnapshot", back_populates="competitor_prices")
+
+
+class SupplierInvoice(Base):
+    __tablename__ = "supplier_invoices"
+
+    id = Column(Integer, primary_key=True)
+    invoice_number = Column(String(128))
+    issue_date = Column(Date)
+    currency = Column(String(16))
+    vendor_name = Column(String(255))
+    vendor_vat_id = Column(String(64))
+    vendor_iban = Column(String(64))
+    receiver_name = Column(String(255))
+    receiver_vat_id = Column(String(64))
+    net_amount = Column(Float)
+    vat_amount = Column(Float)
+    total_due = Column(Float)
+    file_path = Column(String(255))
+    ocr_payload = Column(Text)
+    ocr_pages_log = Column(Text)
+    ocr_status = Column(String(32), default="pending", nullable=False)
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, onupdate=datetime.utcnow)
+    created_by_id = Column(Integer, ForeignKey("users.id"))
+    scan_task_id = Column(Integer, ForeignKey("scan_tasks.id"))
+
+    created_by = relationship("User")
+    scan_task = relationship("ScanTask")
+    lines = relationship(
+        "SupplierInvoiceLine",
+        back_populates="invoice",
+        cascade="all, delete-orphan",
+        order_by="SupplierInvoiceLine.row_index",
+    )
+
+
+class SupplierInvoiceLine(Base):
+    __tablename__ = "supplier_invoice_lines"
+
+    id = Column(Integer, primary_key=True)
+    invoice_id = Column(Integer, ForeignKey("supplier_invoices.id"), nullable=False)
+    row_index = Column(Integer)
+    vendor_code = Column(String(128))
+    description = Column(String(255))
+    quantity = Column(Float)
+    unit = Column(String(32))
+    unit_price = Column(Float)
+    total_row = Column(Float)
+    matched_product_id = Column(Integer, ForeignKey("products.id"))
+    match_method = Column(String(32))
+
+    invoice = relationship("SupplierInvoice", back_populates="lines")
+    matched_product = relationship("Product")
+
+
+class ArtInfoCache(Base):
+    __tablename__ = "art_info_cache"
+    __table_args__ = (UniqueConstraint("art_id", "sklad_code", name="uq_art_info_cache_key"),)
+
+    id = Column(Integer, primary_key=True)
+    art_id = Column(String(64), nullable=False, index=True)
+    sklad_code = Column(String(32), index=True)
+    payload = Column(Text)
+    fetched_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Warehouse(Base):
@@ -265,6 +428,7 @@ class Printer(Base):
     name = Column(String(128))
     ip_address = Column(String(64), nullable=False)
     server_url = Column(String(255))
+    access_key = Column(String(255))
     description = Column(Text)
     is_default = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)

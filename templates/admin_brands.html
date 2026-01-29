@@ -25,7 +25,7 @@
         <div class="hero-content d-none d-md-block">
             <div class="d-flex align-items-center gap-3">
                 <div class="text-end">
-                    <div class="text-white fw-bold fs-5">{{ brands|length }}</div>
+                    <div class="text-white fw-bold fs-5">{{ total_brands }}</div>
                     <div class="text-white opacity-50 small text-uppercase fw-bold">Активни Марки</div>
                 </div>
             </div>
@@ -57,9 +57,10 @@
                 <div class="tree-content flex-grow-1 ps-2">
                     <div class="d-flex align-items-center gap-2">
                         <h6 class="mb-1 fw-bold text-dark">{{ brand.name }}</h6>
-                        {% if brand.products and brand.products|length > 0 %}
+                        {% set product_count = brand_product_counts.get(brand.id, 0) %}
+                        {% if product_count > 0 %}
                             <span class="badge bg-blue-soft text-primary rounded-pill px-2 py-1" style="background: #eff6ff; font-size: 0.65rem;">
-                                {{ brand.products|length }} артикула
+                                {{ product_count }} артикула
                             </span>
                         {% endif %}
                     </div>
@@ -89,6 +90,22 @@
                     <p class="mt-3">Няма въведени брандове. Добавете първия от формата вдясно.</p>
                 </div>
             {% endfor %}
+
+            {% if total_pages > 1 %}
+                <nav class="mt-3 d-flex justify-content-center">
+                    <ul class="pagination pagination-sm mb-0 gap-2">
+                        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                            <a class="page-link rounded-2 border-0 bg-light" href="{{ url_for('admin.brands_panel', page=page-1) }}">&laquo;</a>
+                        </li>
+                        <li class="page-item active">
+                            <span class="page-link rounded-2 border-0 bg-dark">{{ page }} / {{ total_pages }}</span>
+                        </li>
+                        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                            <a class="page-link rounded-2 border-0 bg-light text-dark" href="{{ url_for('admin.brands_panel', page=page+1) }}">&raquo;</a>
+                        </li>
+                    </ul>
+                </nav>
+            {% endif %}
         </div>
 
         <!-- RIGHT COLUMN: STICKY FORM (Add New) -->

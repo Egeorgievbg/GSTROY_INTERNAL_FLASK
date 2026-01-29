@@ -9,9 +9,42 @@ from flask import Blueprint, abort, g, jsonify, request
 from flask_login import current_user, login_required
 
 from models import Printer, User
+from printer_utils import _build_printer_headers
+
+import base64
+import tempfile
+import shutil
+
+
+printer_bp = Blueprint("printers", __name__, url_prefix="/printer-hub")
 
 LABEL_SERVER_TIMEOUT = float(os.environ.get("ERP_LABEL_SERVER_TIMEOUT", "6"))
 LABEL_SERVER_STATUS_TIMEOUT = float(os.environ.get("ERP_LABEL_STATUS_TIMEOUT", "2"))
+
+@printer_bp.route("/print-pdf", methods=["POST"])
+@login_required
+def print_pdf():
+    payload = request.get_json(silent=True) or {}
+    printer_id = payload.get("printer_id")
+    pdf_base64 = payload.get("pdf_base64")
+    copies = _clamp_copies(payload.get("copies", 1))
+    if not printer_id or not pdf_base64:
+        abort(400, "printer_id and pdf_base64 are required")
+    session = g.db
+    printer = session.get(Printer, printer_id)
+    warehouse_id = _user_warehouse_id()
+    if not printer or not printer.is_active or printer.warehouse_id != warehouse_id:
+        abort(404, "printer not found")
+    # Prepare payload for remote print server
+    pdf_payload = {
+        "pdf_base64": pdf_base64,
+        "copies": copies,
+    }
+    try:
+        result = _send_label_request(printer, f"documents/{printer.ip_address}/print-pdf", pdf_payload)
+    except RuntimeError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 502
+    return jsonify({"ok": True, "printer": printer.ip_address, "message": result.get("message", "")})
 
 
 def _user_warehouse_id() -> Optional[int]:
@@ -88,10 +121,11 @@ def _send_label_request(printer: Printer, endpoint: str, payload: Dict[str, Any]
         raise RuntimeError("Не е зададен етикетен сървър за този принтер.")
     url = f"{base.rstrip('/')}/{endpoint.lstrip('/')}"
     body = json.dumps(payload).encode("utf-8")
+    headers = _build_printer_headers(getattr(printer, "access_key", None), "application/json")
     req = urllib.request.Request(
         url,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(req, timeout=LABEL_SERVER_TIMEOUT) as resp:
@@ -107,7 +141,8 @@ def get_printer_status(printer: Printer) -> Dict[str, Any]:
     if not base:
         return {"online": False, "error": "Липсва URL към етикетния сървър"}
     url = f"{base}/printers/{printer.ip_address}/status"
-    req = urllib.request.Request(url, method="GET")
+    headers = _build_printer_headers(getattr(printer, "access_key", None))
+    req = urllib.request.Request(url, method="GET", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=LABEL_SERVER_STATUS_TIMEOUT) as resp:
             return json.load(resp)

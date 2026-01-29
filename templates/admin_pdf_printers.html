@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}PDF Принтери{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width: 900px;">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h5 class="mb-3">PDF Принтери (REST API)</h5>
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Принтер</label>
+                    <select class="form-select" name="printer_id" required>
+                        <option value="">Избери PDF принтер</option>
+                        {% for p in printers %}
+                        <option value="{{ p.id }}">{{ p.queue or p.name or p.id }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Копия</label>
+                    <input type="number" class="form-control" name="copies" value="1" min="1" max="20">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Duplex</label>
+                    <select class="form-select" name="duplex">
+                        <option value="none">None</option>
+                        <option value="long">Long Edge</option>
+                        <option value="short">Short Edge</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Мащаб</label>
+                    <select class="form-select" name="scale">
+                        <option value="fit">Fit</option>
+                        <option value="shrink">Shrink</option>
+                        <option value="none">None</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">PDF файл</label>
+                    <input type="file" class="form-control" name="pdf_file" accept="application/pdf" required>
+                </div>
+                <div class="col-12">
+                    <button class="btn btn-brand-new">Печатай PDF</button>
+                </div>
+            </form>
+            {% if result %}
+                <div class="mt-3">
+                    <h6>Резултат:</h6>
+                    <pre>{{ result|tojson(indent=2) }}</pre>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <h5 class="mb-3">Всички PDF принтери</h5>
+            {% if printers %}
+            <ul class="list-group">
+                {% for p in printers %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><strong>{{ p.queue or p.name or p.id }}</strong> <span class="text-muted">({{ p.id }})</span></span>
+                    <span class="badge bg-secondary">PDF</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted">Няма налични PDF принтери.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

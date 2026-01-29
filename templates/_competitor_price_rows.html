@@ -1,4 +1,4 @@
-{% macro competitor_price_rows(base_price, competitor_prices, empty_message='Няма данни') %}
+{% macro competitor_price_rows(base_price, competitor_prices, empty_message='No data') %}
 {% if competitor_prices %}
 <div class="d-flex flex-column gap-2">
     {% for comp in competitor_prices %}
@@ -33,19 +33,18 @@
             <!-- Right: Price & Diff -->
             <div class="text-end">
                 <div class="fw-bold fs-6 text-dark font-monospace">
-                    {{ "%.2f"|format(comp.price) }} <small class="text-muted fw-normal">{{ comp.currency or 'лв.'
-                        }}</small>
+                    {{ "%.2f"|format(comp.price) }} <small class="text-muted fw-normal">{{ comp.currency or 'EUR' }}</small>
                 </div>
 
                 {% if base_price %}
                 <div class="small fw-bold {{ 'text-danger' if is_cheaper else ('text-success' if is_more_expensive else 'text-muted') }}"
                     style="font-size: 0.75rem;">
                     {% if is_cheaper %}
-                    <i class="bi bi-arrow-down-short"></i>{{ "%.2f"|format(diff|abs) }} по-евтино
+                    <i class="bi bi-arrow-down-short"></i>{{ "%.2f"|format(diff|abs) }} cheaper
                     {% elif is_more_expensive %}
-                    <i class="bi bi-arrow-up-short"></i>{{ "%.2f"|format(diff) }} по-скъпо
+                    <i class="bi bi-arrow-up-short"></i>{{ "%.2f"|format(diff) }} higher
                     {% else %}
-                    <span class="text-muted">= Равна цена</span>
+                    <span class="text-muted">= same price</span>
                     {% endif %}
                 </div>
                 {% endif %}

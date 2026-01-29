@@ -28,18 +28,20 @@
                 <div class="prod-footer">
                     <div class="price-box">
                         {% set display_price = product.visible_price_unit_1 or product.price_unit_1 %}
+                        {% set promo_price = product.promo_price_unit_1 %}
+                        {% set has_promo = product.is_special_offer and display_price and promo_price and promo_price < display_price %}
                         {% set euro_price = (display_price / 1.95583) if display_price else 0 %}
+                        {% set euro_promo = (promo_price / 1.95583) if promo_price else 0 %}
                         
-                        {% if product.promo_price_unit_1 %}
-                            <div class="price-old">{{ "%.2f"|format(display_price) }} лв.</div>
+                        {% if has_promo %}
+                            <div class="price-old">{{ "%.2f"|format(euro_price) }} €</div>
                             <div class="price-val text-danger">
-                                {{ "%.2f"|format(product.promo_price_unit_1) }} <span class="price-unit">лв.</span>
+                                {{ "%.2f"|format(euro_promo) }} <span class="price-unit">€</span>
                             </div>
                         {% elif display_price %}
                             <div class="price-val">
-                                {{ "%.2f"|format(display_price) }} <span class="price-unit">лв.</span>
+                                {{ "%.2f"|format(euro_price) }} <span class="price-unit">€</span>
                             </div>
-                            <div class="price-euro">≈ {{ "%.2f"|format(euro_price) }} €</div>
                         {% else %}
                             <div class="price-val text-muted fs-6">Запитване</div>
                         {% endif %}
@@ -67,9 +69,10 @@
         <td class="text-end pe-4">
             {% set display_price = product.visible_price_unit_1 or product.price_unit_1 %}
             {% if display_price %}
-                <div class="fw-bold text-dark">{{ "%.2f"|format(display_price) }} лв.</div>
+                {% set euro_price = (display_price / 1.95583) %}
+                <div class="fw-bold text-dark">{{ "%.2f"|format(euro_price) }} €</div>
             {% else %}
-                <span class="text-muted small">—</span>
+                <span class="text-muted small">-</span>
             {% endif %}
         </td>
     </tr>

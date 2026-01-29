@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}Център за синхронизация{% endblock %}
+
+{% block extra_styles %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <style>
+    /* Основни цветове и стилове базирани на скрийншота */
+    :root {
+      --gstroy-dark: #1e2433; /* Тъмен фон на хедъра */
+      --gstroy-green: #8cc63f; /* Зеленото от логото */
+      --gstroy-yellow: #f59e0b; /* Жълто за акценти (светкавицата) */
+      --gstroy-bg: #f3f4f6; /* Светъл фон на страницата */
+      --gstroy-border: #e5e7eb;
+    }
+
+    body {
+      background-color: var(--gstroy-bg);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Hero Section (Тъмния панел горе) */
+    .hero-card {
+      background-color: var(--gstroy-dark);
+      border-radius: 16px;
+      color: white;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .hero-subtitle {
+      color: var(--gstroy-green);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .stat-box {
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      text-align: center;
+      min-width: 140px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gstroy-green);
+      line-height: 1.2;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 2px;
+    }
+
+    /* Action Card (Секция за действие) */
+    .action-card {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--gstroy-border);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .icon-flash {
+      color: var(--gstroy-yellow);
+      font-size: 1.2rem;
+    }
+
+    .btn-gstroy {
+      background-color: var(--gstroy-green);
+      color: white;
+      font-weight: 600;
+      padding: 0.6rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-gstroy:hover {
+      background-color: #7ab332;
+      color: white;
+      transform: translateY(-1px);
+    }
+    
+    .btn-gstroy:disabled {
+      background-color: #d1d5db;
+      transform: none;
+    }
+
+    /* Table Styles */
+    .table-card {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--gstroy-border);
+      margin-top: 1.5rem;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .table thead th {
+      background-color: #fff;
+      color: #6b7280;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--gstroy-border);
+    }
+
+    .table tbody td {
+      padding: 1rem 1.5rem;
+      color: #374151;
+      font-size: 0.9rem;
+      border-bottom: 1px solid #f3f4f6;
+      vertical-align: middle;
+    }
+    
+    .table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Status Badges similar to screenshot */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .status-success {
+      background-color: #ecfdf5;
+      color: #059669;
+      border-color: #d1fae5;
+    }
+
+    .status-failed {
+      background-color: #fef2f2;
+      color: #dc2626;
+      border-color: #fee2e2;
+    }
+
+    .status-progress {
+      background-color: #eff6ff;
+      color: #2563eb;
+      border-color: #dbeafe;
+    }
+
+    /* Info Badge in Table */
+    .info-pill {
+      background-color: #f3f4f6;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #4b5563;
+      border: 1px solid #e5e7eb;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 1400px;">
+  
+  <!-- Hero Section -->
+  <div class="hero-card mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-4">
+      <div>
+        <div class="hero-subtitle">
+          <i class="bi bi-hdd-rack"></i> СИСТЕМА
+        </div>
+        <h1 class="display-6 fw-bold mb-2">Синхронизация на продукти</h1>
+        <p class="mb-0 text-white-50" style="max-width: 600px;">
+          Централизирано управление на кеша на WebNomenInfo, логове и история на обновяванията.
+        </p>
+      </div>
+      
+      <!-- Stats Boxes -->
+      <div class="d-flex gap-3">
+        <div class="stat-box">
+          <div class="stat-value">{{ total_products }}</div>
+          <div class="stat-label">АРТИКУЛИ В БАЗАТА</div>
+        </div>
+        <div class="stat-box">
+          <!-- Тук форматираме времето или показваме текст -->
+          <div class="stat-value" style="font-size: 1.1rem; line-height: 29px;">
+            {{ last_success_ago }}
+          </div>
+          <div class="stat-label">ПОСЛЕДЕН УСПЕХ</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Section (Designed like "Бързо добавяне") -->
+  <div class="action-card">
+    <div class="section-title">
+      <i class="bi bi-lightning-fill icon-flash"></i>
+      Ръчна синхронизация
+    </div>
+    
+    <div class="row align-items-end">
+      <div class="col-md-8 mb-3 mb-md-0">
+        <p class="text-muted small mb-0">
+          Натиснете бутона, за да стартирате принудително обновяване на номенклатурите от външния източник. 
+          Процесът обикновено отнема около 20-30 секунди.
+        </p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <form method="post" action="{{ url_for('admin.trigger_sync') }}" id="syncTriggerForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-gstroy w-100 w-md-auto" id="syncTriggerBtn">
+            <span class="spinner-border spinner-border-sm d-none me-2" role="status" aria-hidden="true"></span>
+            <span class="btn-label">Стартирай сега</span>
+            <i class="bi bi-arrow-repeat ms-2" id="btnIcon"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pricemind Sync Section -->
+  <div class="action-card">
+    <div class="section-title">
+      <i class="bi bi-graph-up icon-flash"></i>
+      Pricemind Competitor Sync
+    </div>
+
+    <div class="row align-items-end">
+      <div class="col-md-8 mb-3 mb-md-0">
+        <p class="text-muted small mb-1">
+          Competitor price feed sync. Runs on schedule and can be triggered manually.
+        </p>
+        {% if pricemind_last %}
+          <div class="small text-muted">
+            Last sync: {{ pricemind_last.started_at.strftime("%d.%m.%Y %H:%M") if pricemind_last.started_at else "-" }}
+            | Status: {{ pricemind_last.status }}
+            | Rows: {{ pricemind_last.total_rows or 0 }}
+            | Matched: {{ pricemind_last.matched_count or 0 }}
+            | Unmatched: {{ pricemind_last.unmatched_count or 0 }}
+          </div>
+        {% else %}
+          <div class="small text-muted">No Pricemind sync history yet.</div>
+        {% endif %}
+      </div>
+      <div class="col-md-4 text-md-end">
+        <form method="post" action="{{ url_for('admin.trigger_pricemind_sync') }}" id="pricemindTriggerForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-gstroy w-100 w-md-auto" id="pricemindTriggerBtn">
+            <span class="spinner-border spinner-border-sm d-none me-2" role="status" aria-hidden="true"></span>
+            <span class="btn-label">Run Pricemind Sync</span>
+            <i class="bi bi-arrow-repeat ms-2" id="pricemindBtnIcon"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-card mt-3">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th scope="col">SKU</th>
+              <th scope="col">Title</th>
+              <th scope="col">My Price</th>
+              <th scope="col">Lowest Price</th>
+              <th scope="col">Competitor</th>
+              <th scope="col" class="text-end">Match</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if pricemind_rows %}
+              {% for row in pricemind_rows %}
+                <tr>
+                  <td class="fw-bold">{{ row.sku }}</td>
+                  <td>{{ row.title or "-" }}</td>
+                  <td>{{ "%.2f"|format(row.my_price or 0) }}</td>
+                  <td>{{ "%.2f"|format(row.lowest_price or 0) }}</td>
+                  <td>{{ row.lowest_competitor or "-" }}</td>
+                  <td class="text-end">
+                    {% if row.is_matched %}
+                      <span class="status-badge status-success">Matched</span>
+                    {% else %}
+                      <span class="status-badge status-failed">Unmatched</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">No Pricemind data available.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3 border-top d-flex justify-content-between align-items-center">
+        <small class="text-muted">Showing latest 30 rows</small>
+        <a href="{{ url_for('admin.pricemind_snapshots') }}" class="btn btn-sm btn-outline-secondary">View full table</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Table -->
+  <div class="d-flex justify-content-between align-items-end mt-4 mb-2 px-1">
+    <div>
+        <h5 class="fw-bold text-dark mb-0">История на синхронизациите</h5>
+        <small class="text-muted">Последните 20 записа</small>
+    </div>
+    <!-- Тук може да се сложи филтър, ако е нужно, подобно на скрийншота -->
+  </div>
+
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th scope="col">Старт на процес</th>
+            <th scope="col">Времетраене</th>
+            <th scope="col">Създадени</th>
+            <th scope="col">Обновени</th>
+            <th scope="col" class="text-end">Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if history_rows %}
+            {% for row in history_rows %}
+              <tr>
+                <td>
+                  <div class="d-flex flex-column">
+                    <span class="fw-bold text-dark">
+                        {{ row.started_at.strftime("%d.%m.%Y") if row.started_at else "-" }}
+                    </span>
+                    <span class="text-muted small">
+                        {{ row.started_at.strftime("%H:%M:%S") if row.started_at else "" }}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                    {% if row.duration %}
+                        <span class="info-pill">{{ row.duration }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.created_count > 0 %}
+                        <span class="text-success fw-bold">+{{ row.created_count }}</span>
+                    {% else %}
+                        <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.updated_count > 0 %}
+                        <span class="text-primary fw-bold">~{{ row.updated_count }}</span>
+                    {% else %}
+                        <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if row.status == 'SUCCESS' %}
+                    <span class="status-badge status-success">
+                      <i class="bi bi-check-circle-fill"></i> УСПЕШЕН
+                    </span>
+                  {% elif row.status == 'FAILED' %}
+                    <span class="status-badge status-failed">
+                      <i class="bi bi-x-circle-fill"></i> ГРЕШКА
+                    </span>
+                  {% elif row.status == 'IN_PROGRESS' %}
+                    <span class="status-badge status-progress">
+                      <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span> РАБОТИ...
+                    </span>
+                  {% else %}
+                    <span class="status-badge bg-light text-secondary border">
+                      {{ row.status }}
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-5">
+                Няма налична история за синхронизациите.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Пагинация (Визуална имитация от скрийншота) -->
+    <div class="p-3 border-top d-flex justify-content-center">
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item disabled"><a class="page-link border-0 bg-transparent" href="#">&laquo;</a></li>
+                <li class="page-item active"><a class="page-link bg-dark border-dark" href="#">1</a></li>
+                <li class="page-item disabled"><a class="page-link border-0 bg-transparent" href="#">&raquo;</a></li>
+            </ul>
+        </nav>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    const form = document.getElementById('syncTriggerForm');
+    if (!form) return;
+    const button = document.getElementById('syncTriggerBtn');
+    const spinner = button.querySelector('.spinner-border');
+    const label = button.querySelector('.btn-label');
+    const icon = document.getElementById('btnIcon');
+
+    form.addEventListener('submit', () => {
+      button.disabled = true;
+      if (spinner) spinner.classList.remove('d-none');
+      if (icon) icon.classList.add('d-none');
+      if (label) label.textContent = 'Обработване...';
+    });
+  })();
+
+  (function() {
+    const form = document.getElementById('pricemindTriggerForm');
+    if (!form) return;
+    const button = document.getElementById('pricemindTriggerBtn');
+    const spinner = button.querySelector('.spinner-border');
+    const label = button.querySelector('.btn-label');
+    const icon = document.getElementById('pricemindBtnIcon');
+
+    form.addEventListener('submit', () => {
+      button.disabled = true;
+      if (spinner) spinner.classList.remove('d-none');
+      if (icon) icon.classList.add('d-none');
+      if (label) label.textContent = 'Syncing...';
+    });
+  })();
+</script>
+{% endblock %}

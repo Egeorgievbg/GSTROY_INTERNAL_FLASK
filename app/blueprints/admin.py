@@ -4,10 +4,14 @@ from datetime import datetime
 
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for, current_app, jsonify
 from sqlalchemy import func, or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, load_only
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
+from app.services.sync_service import ProductSyncService
+from app.services.feed_sync_service import ProductFeedSyncService
+from app.services.pricemind_sync_service import PricemindSyncService
+from app.services.search_service import ProductSearchService
 from helpers import (
     hierarchical_address,
     parse_bool,
@@ -25,8 +29,12 @@ from models import (
     Category,
     ContentItem,
     Product,
+    PricemindSyncLog,
+    PricemindSnapshot,
+    PricemindCompetitorPrice,
     Role,
     ServicePoint,
+    SyncLog,
     User,
     UserContentProgress,
     Warehouse,
@@ -75,7 +83,7 @@ def _get_products_query(request):
 def _load_category_tree(session):
     return (
         session.query(Category)
-        .options(joinedload(Category.products))
+        .options(joinedload(Category.parent))
         .order_by(Category.address)
         .all()
     )
@@ -128,6 +136,45 @@ def _parse_time(value):
         return datetime.strptime(value, "%H:%M").time()
     except ValueError:
         return None
+
+
+def _format_seconds(total_seconds):
+    total_seconds = max(int(total_seconds or 0), 0)
+    if total_seconds < 60:
+        return f"{total_seconds}s"
+    minutes, seconds = divmod(total_seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m {seconds}s"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours}h {minutes}m"
+    days, hours = divmod(hours, 24)
+    return f"{days}d {hours}h"
+
+
+def _time_ago(value):
+    if not value:
+        return "Never"
+    delta = datetime.utcnow() - value
+    return f"{_format_seconds(delta.total_seconds())} ago"
+
+
+def _format_duration(started_at, completed_at):
+    if not started_at:
+        return "-"
+    if not completed_at:
+        return "In progress"
+    return _format_seconds((completed_at - started_at).total_seconds())
+
+
+def _status_badge(status):
+    if status == "SUCCESS":
+        return "success"
+    if status == "FAILED":
+        return "danger"
+    if status == "IN_PROGRESS":
+        return "warning"
+    return "secondary"
 
 
 def _load_entities_by_ids(session, model, ids):
@@ -720,6 +767,12 @@ def update_product(product_id):
 
     try:
         session.commit()
+        try:
+            service = ProductSearchService(current_app)
+            if service.is_enabled() and service.ensure_index():
+                service.bulk_index([product])
+        except Exception as exc:
+            current_app.logger.warning("Elasticsearch update failed: %s", exc)
         flash("Продуктът беше запазен успешно.", "success")
     except Exception as e:
         session.rollback()
@@ -757,6 +810,12 @@ def create_product():
     session.add(product)
     try:
         session.commit()
+        try:
+            service = ProductSearchService(current_app)
+            if service.is_enabled() and service.ensure_index():
+                service.bulk_index([product])
+        except Exception as exc:
+            current_app.logger.warning("Elasticsearch update failed: %s", exc)
         flash(f"{product.name} was created successfully.", "success")
         return redirect(url_for(".product_detail", product_id=product.id))
     except Exception:
@@ -809,7 +868,35 @@ def categories_panel():
             flash("Category added successfully.", "success")
         return redirect(url_for(".categories_panel"))
 
-    categories = _load_category_tree(session)
+    page = max(request.args.get("page", type=int, default=1), 1)
+    per_page = 50
+    total_categories = session.query(func.count(Category.id)).scalar() or 0
+    total_pages = max((total_categories + per_page - 1) // per_page, 1)
+    page = min(page, total_pages)
+
+    categories = (
+        session.query(Category)
+        .options(joinedload(Category.parent))
+        .order_by(Category.address)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    parent_options = (
+        session.query(Category)
+        .options(load_only(Category.id, Category.name, Category.level, Category.parent_id))
+        .order_by(Category.address)
+        .all()
+    )
+    category_ids = [category.id for category in categories]
+    category_product_counts = {}
+    if category_ids:
+        category_product_counts = dict(
+            session.query(Product.category_id, func.count(Product.id))
+            .filter(Product.category_id.in_(category_ids))
+            .group_by(Product.category_id)
+            .all()
+        )
     edit_id = request.args.get("edit_id", type=int)
     edit_category = session.get(Category, edit_id) if edit_id else None
     stats = {
@@ -819,8 +906,13 @@ def categories_panel():
     return render_template(
         "admin_categories.html",
         categories=categories,
+        total_categories=total_categories,
+        category_product_counts=category_product_counts,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
         stats=stats,
-        parent_options=categories,
+        parent_options=parent_options,
         edit_category=edit_category,
     )
 
@@ -925,12 +1017,42 @@ def brands_panel():
             session.commit()
             flash("Brand saved.", "success")
         return redirect(url_for(".brands_panel"))
-    brands = session.query(Brand).order_by(Brand.name).all()
+    page = max(request.args.get("page", type=int, default=1), 1)
+    per_page = 50
+    total_brands = session.query(func.count(Brand.id)).scalar() or 0
+    total_pages = max((total_brands + per_page - 1) // per_page, 1)
+    page = min(page, total_pages)
+
+    brands = (
+        session.query(Brand)
+        .order_by(Brand.name)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    brand_ids = [brand.id for brand in brands]
+    brand_product_counts = {}
+    if brand_ids:
+        brand_product_counts = dict(
+            session.query(Product.brand_id, func.count(Product.id))
+            .filter(Product.brand_id.in_(brand_ids))
+            .group_by(Product.brand_id)
+            .all()
+        )
     stats = {
         "products_count": session.query(func.count(Product.id)).scalar() or 0,
         "users_count": session.query(func.count(User.id)).scalar() or 0,
     }
-    return render_template("admin_brands.html", brands=brands, stats=stats)
+    return render_template(
+        "admin_brands.html",
+        brands=brands,
+        brand_product_counts=brand_product_counts,
+        total_brands=total_brands,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        stats=stats,
+    )
 
 
 @admin_bp.route("/users")
@@ -1175,17 +1297,27 @@ def printers_panel():
         name = (request.form.get("name") or "").strip()
         ip_address = (request.form.get("ip_address") or "").strip()
         server_url = (request.form.get("server_url") or "").strip() or None
+        access_key = (request.form.get("access_key") or "").strip() or None
         description = (request.form.get("description") or "").strip() or None
         is_active = parse_bool(request.form.get("is_active"))
         is_default = parse_bool(request.form.get("is_default"))
         if not warehouse or not ip_address:
             flash("Изберете склад и въведете IP на принтера.", "warning")
             return redirect(url_for(".printers_panel"))
+        # Check for duplicate (warehouse_id, ip_address)
+        existing = session.query(Printer).filter(
+            Printer.warehouse_id == warehouse.id,
+            Printer.ip_address == ip_address
+        ).first()
+        if existing:
+            flash("В този склад вече има принтер с този IP адрес!", "danger")
+            return redirect(url_for(".printers_panel"))
         printer = Printer(
             warehouse_id=warehouse.id,
             name=name or None,
             ip_address=ip_address,
             server_url=server_url,
+            access_key=access_key,
             description=description,
             is_active=is_active,
             is_default=is_default,
@@ -1235,10 +1367,21 @@ def printer_detail(printer_id):
         if not warehouse:
             flash("Изберете валиден склад.", "warning")
             return redirect(url_for(".printer_detail", printer_id=printer_id))
+        new_ip = (request.form.get("ip_address") or "").strip()
+        # Check for duplicate (warehouse_id, ip_address) except self
+        existing = session.query(Printer).filter(
+            Printer.warehouse_id == warehouse.id,
+            Printer.ip_address == new_ip,
+            Printer.id != printer.id
+        ).first()
+        if existing:
+            flash("В този склад вече има принтер с този IP адрес!", "danger")
+            return redirect(url_for(".printer_detail", printer_id=printer_id))
         printer.warehouse = warehouse
         printer.name = (request.form.get("name") or "").strip() or None
-        printer.ip_address = (request.form.get("ip_address") or "").strip()
+        printer.ip_address = new_ip
         printer.server_url = (request.form.get("server_url") or "").strip() or None
+        printer.access_key = (request.form.get("access_key") or "").strip() or None
         printer.description = (request.form.get("description") or "").strip() or None
         printer.is_active = parse_bool(request.form.get("is_active"))
         printer.is_default = parse_bool(request.form.get("is_default"))
@@ -1366,3 +1509,216 @@ def erp_panel():
         {"name": "PPD Document Export", "status": "Healthy", "last_synced": "15:45", "latency": "200ms"},
     ]
     return render_template("admin_erp.html", services=services)
+
+
+@admin_bp.route("/sync-center")
+def sync_center():
+    require_admin()
+    session = g.db
+    total_products = session.query(func.count(Product.id)).scalar() or 0
+    last_success = (
+        session.query(SyncLog)
+        .filter(SyncLog.status == "SUCCESS")
+        .order_by(SyncLog.completed_at.desc(), SyncLog.started_at.desc())
+        .first()
+    )
+    last_log = session.query(SyncLog).order_by(SyncLog.started_at.desc()).first()
+    last_status = last_log.status if last_log else "N/A"
+    last_status_badge = _status_badge(last_status)
+
+    history = (
+        session.query(SyncLog)
+        .order_by(SyncLog.started_at.desc())
+        .limit(20)
+        .all()
+    )
+    history_rows = []
+    for entry in history:
+        history_rows.append(
+            {
+                "id": entry.id,
+                "started_at": entry.started_at,
+                "duration": _format_duration(entry.started_at, entry.completed_at),
+                "total_fetched": entry.total_fetched or 0,
+                "created_count": entry.created_count or 0,
+                "updated_count": entry.updated_count or 0,
+                "status": entry.status,
+            }
+        )
+
+    pricemind_last = (
+        session.query(PricemindSyncLog)
+        .order_by(PricemindSyncLog.started_at.desc())
+        .first()
+    )
+    pricemind_rows = []
+    if pricemind_last and pricemind_last.status == "SUCCESS":
+        latest_snapshots = (
+            session.query(PricemindSnapshot)
+            .filter(PricemindSnapshot.sync_log_id == pricemind_last.id)
+            .order_by(PricemindSnapshot.id.desc())
+            .limit(30)
+            .all()
+        )
+        for snap in latest_snapshots:
+            pricemind_rows.append(
+                {
+                    "sku": snap.sku,
+                    "title": snap.title,
+                    "my_price": snap.my_price,
+                    "lowest_price": snap.lowest_price,
+                    "lowest_competitor": snap.lowest_price_competitor,
+                    "is_matched": bool(snap.product_id),
+                }
+            )
+
+    return render_template(
+        "admin/sync_center.html",
+        total_products=total_products,
+        last_success_ago=_time_ago(last_success.completed_at) if last_success else "Never",
+        last_status=last_status,
+        last_status_badge=last_status_badge,
+        history_rows=history_rows,
+        pricemind_last=pricemind_last,
+        pricemind_rows=pricemind_rows,
+    )
+
+
+@admin_bp.route("/sync/trigger", methods=["POST"])
+def trigger_sync():
+    require_admin()
+    session = g.db
+    user = getattr(g, "current_user", None)
+    triggered_by = "Admin User"
+    if user and getattr(user, "is_authenticated", False):
+        triggered_by = user.full_name or user.username or triggered_by
+
+    service = ProductSyncService(session)
+    apply_to_catalog = current_app.config.get("NOMEN_SYNC_APPLY_TO_CATALOG", True)
+    deactivate_missing = current_app.config.get("NOMEN_SYNC_DEACTIVATE_MISSING", True)
+    single_id = (current_app.config.get("NOMEN_API_SINGLE_ID") or "").strip()
+    if single_id:
+        deactivate_missing = False
+    nomen_log = service.run_sync(
+        triggered_by=triggered_by,
+        apply_to_catalog=apply_to_catalog,
+        deactivate_missing=deactivate_missing,
+    )
+
+    feed_log = None
+    feed_enabled = current_app.config.get("FB_FEED_SYNC_ENABLED", True)
+    if feed_enabled:
+        feed_service = ProductFeedSyncService(session)
+        feed_log = feed_service.run_sync(triggered_by=f"{triggered_by} (FB Feed)")
+
+    messages = []
+    overall_success = True
+    if nomen_log and nomen_log.status == "SUCCESS":
+        messages.append(
+            "ERP Sync completed. "
+            f"Fetched {nomen_log.total_fetched or 0}, "
+            f"created {nomen_log.created_count or 0}, "
+            f"updated {nomen_log.updated_count or 0}."
+        )
+    else:
+        overall_success = False
+        messages.append("ERP Sync failed. Check the sync history for details.")
+
+    if feed_enabled:
+        if feed_log and feed_log.status == "SUCCESS":
+            messages.append(
+                "FB feed sync completed. "
+                f"Fetched {feed_log.total_fetched or 0}, "
+                f"updated {feed_log.updated_count or 0}."
+            )
+        else:
+            overall_success = False
+            messages.append("FB feed sync failed. Check the sync history for details.")
+
+    flash(" ".join(messages), "success" if overall_success else "danger")
+    return redirect(url_for(".sync_center"))
+
+
+@admin_bp.route("/pricemind/trigger", methods=["POST"])
+def trigger_pricemind_sync():
+    require_admin()
+    session = g.db
+    user = getattr(g, "current_user", None)
+    triggered_by = "Admin User"
+    if user and getattr(user, "is_authenticated", False):
+        triggered_by = user.full_name or user.username or triggered_by
+
+    service = PricemindSyncService(session)
+    log = service.run_sync(triggered_by=triggered_by)
+    if log and log.status == "SUCCESS":
+        flash(
+            (
+                "Pricemind sync completed. "
+                f"Fetched {log.total_rows or 0}, "
+                f"matched {log.matched_count or 0}, "
+                f"unmatched {log.unmatched_count or 0}."
+            ),
+            "success",
+        )
+    else:
+        flash("Pricemind sync failed. Check the sync history for details.", "danger")
+    return redirect(url_for(".sync_center"))
+
+
+@admin_bp.route("/pricemind/snapshots")
+def pricemind_snapshots():
+    require_admin()
+    session = g.db
+    sku_query = (request.args.get("sku") or "").strip()
+    competitor_query = (request.args.get("competitor") or "").strip()
+    unmatched_only = parse_bool(request.args.get("unmatched"))
+    page = request.args.get("page", 1, type=int)
+    per_page = 50
+
+    last_log = (
+        session.query(PricemindSyncLog)
+        .filter(PricemindSyncLog.status == "SUCCESS")
+        .order_by(PricemindSyncLog.started_at.desc())
+        .first()
+    )
+    if not last_log:
+        return render_template(
+            "admin/pricemind_snapshots.html",
+            rows=[],
+            page=page,
+            per_page=per_page,
+            total=0,
+            sku_query=sku_query,
+            competitor_query=competitor_query,
+            unmatched_only=unmatched_only,
+        )
+
+    query = session.query(PricemindSnapshot).filter(
+        PricemindSnapshot.sync_log_id == last_log.id
+    )
+    if sku_query:
+        query = query.filter(PricemindSnapshot.sku.ilike(f"%{sku_query}%"))
+    if unmatched_only:
+        query = query.filter(PricemindSnapshot.product_id.is_(None))
+    if competitor_query:
+        query = query.join(PricemindCompetitorPrice).filter(
+            PricemindCompetitorPrice.competitor.ilike(f"%{competitor_query}%")
+        )
+
+    total = query.order_by(None).count()
+    rows = (
+        query.order_by(PricemindSnapshot.id.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    return render_template(
+        "admin/pricemind_snapshots.html",
+        rows=rows,
+        page=page,
+        per_page=per_page,
+        total=total,
+        sku_query=sku_query,
+        competitor_query=competitor_query,
+        unmatched_only=unmatched_only,
+    )

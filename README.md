@@ -13,12 +13,13 @@ This repository houses a Flask-based stock-order fulfillment simulator with PPP 
 4. [PPP document lifecycle](#ppp-document-lifecycle)
 5. [Scanning & event history](#scanning--event-history)
 6. [Academy / Admin extras](#academy--admin-extras)
-7. [Local setup](#local-setup)
-8. [Running & debugging](#running--debugging)
-9. [Database / seed data](#database--seed-data)
-10. [Testing](#testing)
-11. [Contribution & GitHub publish](#contribution--github-publish)
-12. [Key references](#key-references)
+7. [Invoices & Receipts (Доставки и приходи)](#invoices--receipts-доставки-и-приходи)
+8. [Local setup](#local-setup)
+9. [Running & debugging](#running--debugging)
+10. [Database / seed data](#database--seed-data)
+11. [Testing](#testing)
+12. [Contribution & GitHub publish](#contribution--github-publish)
+13. [Key references](#key-references)
 
 ---
 
@@ -36,6 +37,9 @@ This repository houses a Flask-based stock-order fulfillment simulator with PPP 
 | **models.py** | SQLAlchemy model graph: `StockOrder`, `StockOrderItem`, `ScanTask`, `ScanEvent`, `PPPDocument`, `User`, etc. Relationships power eager-loading in views. |
 | **constants.py** | Shared constants (PPP output paths, bootstrap helpers, stock order status labels). |
 | **services/** | `order_tasks.py` and other helpers encapsulate domain logic (ERP payloads, status updates, scan recording). |
+| **app/blueprints/deliveries.py** | Deliveries & receipts dashboard, OCR intake, and scan task generation from invoices.
+| **app/services/invoice_service.py** | Invoice OCR pipeline, PDF/image extraction, and vendor-code matching to catalog. |
+| **templates/deliveries_*.html** | UI for invoice intake (`deliveries_index.html`) and invoice detail (`delivery_detail.html`). |
 | **templates/** | Twig-like Jinja UI for dashboards and handovers, with components like `stock_order_handover.html`, `stock_order_ppp.html`, and academy pages. |
 | **utils.py** | Shared helpers: PDF generation (`generate_ppp_pdf`), signature persistence, normalization utilities. |
 
@@ -73,6 +77,31 @@ This repository houses a Flask-based stock-order fulfillment simulator with PPP 
 - The academy blueprint builds knowledge base, push notifications, and progressive reading tracking via `UserContentProgress`.
 - Admin templates (`templates/admin/academy_list.html`, `templates/admin/academy_editor.html`, `templates/admin_panel.html`) expose quick insights and controls (academy pushes, PPP stats, scanning dashboards).
 
+## Invoices & Receipts (Доставки и приходи)
+
+- **Входна точка:** `/deliveries` (меню “Нареждания” -> “Доставки и приходи”).
+- **Качване:** приемаме PDF/PNG/JPG. Файлът се записва в `static/uploads/invoices`, а записът се пази в `SupplierInvoice`.
+- **OCR разчитане:**
+  - Ако има **PyMuPDF**, PDF-ите се рендират като изображения за най-точно OCR (особено сканирани).
+  - Ако PyMuPDF липсва, се използва **pypdf** за текстово извличане (само за “истински” текстови PDF).
+  - Изображения (PNG/JPG) се пращат директно към OCR.
+- **Извличани данни (schema):** header (номер, дата, валута), vendor/receiver, редове (article_no, qty, unit, unit_price, total_row), totals.
+- **Мачване към каталога:** за всеки `article_no` търсим:
+  1) `Product.catalog_number` (katnomer),
+  2) `Product.item_number`,
+  3) `Product.barcode`,
+  4) `MasterProduct.vendor_code` -> `MasterProduct.internal_id` -> `Product.versus_id`.
+- **Сравнение на цени:** на детайлната страница се вижда “Наша цена” и разлика спрямо фактурата.
+- **Scan task:** от детайла можеш да генерираш `ScanTask` тип `receipt`. Количествата се агрегират по баркод. Ако продуктът няма баркод, използваме `vendor_code` за сканиране.
+- **Проследимост:** пазим OCR payload (`ocr_payload`), статус (`pending/processing/success/failed`) и error message.
+
+### Настройки за OCR
+- `OPENAI_API_KEY` (задължителен).
+- `INVOICE_OCR_MODEL` (default: `gpt-4o-mini`).
+- `INVOICE_OCR_TIMEOUT` (default: `60`).
+- `INVOICE_OCR_MAX_PAGES` (default: `5`).
+- `INVOICE_UPLOAD_MAX_BYTES` (default: `15728640` = 15MB).
+
 ## Local setup
 
 ```powershell
@@ -83,11 +112,31 @@ pip install -r requirements.txt
 .\\setup.ps1 -Run  # starts dev server with reload
 ```
 
+## Elasticsearch (Products Search)
+
+- Start Elasticsearch (local):
+  - `docker compose up -d elasticsearch`
+- Enable integration:
+  - `ELASTICSEARCH_ENABLED=1` (default: auto-enabled when ES is running)
+  - `ELASTICSEARCH_URL=http://localhost:9200`
+  - Optional: `ELASTICSEARCH_INDEX=gstroy-products`
+- Build the index:
+  - `python scripts/reindex_products.py`
+- Auto-indexing:
+  - `ELASTICSEARCH_AUTO_INDEX=1` (default)
+  - `ELASTICSEARCH_FORCE_REINDEX=1` (rebuilds index on app start)
+  - Transliteration support is built-in (Latin -> Cyrillic matching). If you already indexed before, rebuild once:
+    - `python scripts/reindex_products.py --rebuild`
+- Fast autocomplete uses search-as-you-type fields; rebuild index after upgrades:
+  - `python scripts/reindex_products.py --rebuild`
+
 - Environment variables:
   - `ERP_DEMO_DATABASE_URL`: defaults to `sqlite:///erp_demo.db`; swap to Postgres if needed.
   - `ERP_DEMO_SECRET_KEY`: change from `change-me`.
   - `ERP_DEMO_DEFAULT_PASSWORD`: used when seeding `admin/demo1234`.
   - `SIGNATURE_MAX_BYTES`: caps PNG uploads (default `200000` bytes).
+  - `OPENAI_API_KEY`: needed for invoice OCR (do not commit).
+  - `INVOICE_OCR_MODEL`, `INVOICE_OCR_TIMEOUT`, `INVOICE_OCR_MAX_PAGES`, `INVOICE_UPLOAD_MAX_BYTES`.
 
 ## Running & debugging
 

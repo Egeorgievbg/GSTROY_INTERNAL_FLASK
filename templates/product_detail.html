@@ -179,16 +179,22 @@
 
         <!-- 2. PRICING CARD -->
         <div class="modern-card mb-3 p-4 bg-light border-0">
+            {% set euro_original = (pricing.original / 1.95583) if pricing.original else 0 %}
+            {% set euro_current = (pricing.current / 1.95583) if pricing.current else 0 %}
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-muted small text-uppercase">Стандартна Цена</span>
-                <span class="fw-bold text-decoration-line-through text-muted">{{ "%.2f"|format(product.price_unit_1 or 0) }} лв.</span>
+                <span class="text-muted small text-uppercase">Ценоразпис</span>
+                {% if pricing.has_promo %}
+                    <span class="fw-bold text-decoration-line-through text-muted">{{ "%.2f"|format(euro_original) }} €</span>
+                {% else %}
+                    <span class="text-muted">&mdash;</span>
+                {% endif %}
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
-                <span class="fw-bold text-dark">Промо / Клиент</span>
+                <span class="fw-bold text-dark">Продажна цена</span>
                 <span class="fs-1 fw-bold text-danger font-monospace lh-1">
-                    {{ "%.2f"|format(product.promo_price_unit_1 or product.price_unit_1 or 0) }} 
-                    <small class="fs-6 text-muted fw-normal">лв.</small>
+                    {{ "%.2f"|format(euro_current) }}
+                    <small class="fs-6 text-muted fw-normal">€</small>
                 </span>
             </div>
             
@@ -416,7 +422,7 @@
                         {% for log in delivery_log %}
                         <tr>
                             <td class="ps-3 fw-bold text-dark">{{ log.warehouse }}</td>
-                            <td class="text-end font-monospace">{{ "%.2f"|format(log.price) }} лв.</td>
+                            <td class="text-end font-monospace">{{ "%.2f"|format(log.price) }} {{ log.currency or pricing.currency or "BGN" }}</td>
                             <td class="text-end pe-3 text-muted">{{ log.date }}</td>
                         </tr>
                         {% else %}

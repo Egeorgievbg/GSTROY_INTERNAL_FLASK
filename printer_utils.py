@@ -1,9 +1,9 @@
 import json
 import urllib.request
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
-from gstroy_constants import PRINTER_REQUEST_TIMEOUT
+from gstroy_constants import PRINTER_AUTH_HEADERS, PRINTER_REQUEST_TIMEOUT
 from models import Printer
 
 
@@ -57,6 +57,18 @@ def printer_server_base(printer):
         url = f"http://{url}"
     return url.rstrip("/")
 
+def _build_printer_headers(access_key, content_type=None):
+    headers = {}
+    if content_type:
+        headers["Content-Type"] = content_type
+    key = (access_key or "").strip()
+    if not key:
+        return headers
+    for header in PRINTER_AUTH_HEADERS:
+        headers.setdefault(header, key)
+    headers["Authorization"] = f"Bearer {key}"
+    return headers
+
 
 def send_printer_request(printer, endpoint, payload):
     url_base = printer_server_base(printer)
@@ -64,10 +76,11 @@ def send_printer_request(printer, endpoint, payload):
         raise RuntimeError("Принтерът няма конфигуриран сървър.")
     url = urljoin(f"{url_base}/", endpoint.lstrip("/"))
     body = json.dumps(payload).encode("utf-8")
+    headers = _build_printer_headers(getattr(printer, "access_key", None), "application/json")
     request = urllib.request.Request(
         url,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=PRINTER_REQUEST_TIMEOUT) as response:

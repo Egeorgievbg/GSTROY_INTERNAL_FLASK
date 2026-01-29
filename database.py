@@ -111,6 +111,7 @@ def init_db():
     ensure_column("warehouses", "printer_server_url", "VARCHAR(255)")
     ensure_column("products", "service_point_id", "INTEGER")
     ensure_column("printers", "server_url", "VARCHAR(255)")
+    ensure_column("printers", "access_key", "VARCHAR(255)")
     ensure_column("users", "password_hash", "VARCHAR(255) DEFAULT ''")
     ensure_column("users", "is_admin", "BOOLEAN DEFAULT 0")
     ensure_column("users", "can_view_competitor_prices", "BOOLEAN DEFAULT 0")
@@ -125,6 +126,8 @@ def init_db():
     ensure_column("stock_orders", "last_handover_by_id", "INTEGER")
     ensure_column("stock_orders", "delivered_at", "DATETIME")
     ensure_column("stock_orders", "delivered_by_id", "INTEGER")
+    # OCR pages log (stores per-page OCR status JSON)
+    ensure_column("supplier_invoices", "ocr_pages_log", "TEXT")
 
     session = SessionLocal()
 

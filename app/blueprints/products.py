@@ -1,9 +1,10 @@
 import csv
 import os
-import random
 from io import BytesIO, StringIO
 
 from app.blueprints.catalog_sync import BrandRegistry, CategoryRegistry
+from app.services.art_info_service import ArtInfoService
+from app.services.search_service import ProductSearchService
 from flask import (
     Blueprint,
     abort,
@@ -18,7 +19,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from constants import (
     ALLOWED_CSV_MIME_TYPES,
@@ -28,7 +29,13 @@ from constants import (
     PRODUCT_CSV_FIELDS,
 )
 from helpers import canonical_unit_name, require_admin, user_warehouse, safe_redirect_target
-from models import Product
+from models import (
+    Category,
+    PricemindCompetitorPrice,
+    PricemindSnapshot,
+    PricemindSyncLog,
+    Product,
+)
 from printer_utils import (
     active_printers_for_warehouse,
     resolve_printer_for_warehouse,
@@ -46,21 +53,92 @@ from utils import (
 products_bp = Blueprint("products", __name__)
 
 
-def build_product_category_tree(products):
+def build_category_tree(categories):
     tree = {}
-    for product in products:
-        main = (product.primary_group or product.category or "Други").strip()
-        sub = (product.secondary_group or product.group or "").strip()
-        sub2 = (product.tertiary_group or product.subgroup or "").strip()
-        sub3 = (product.quaternary_group or "").strip()
-        node = tree.setdefault(main, {"children": {}})
-        if sub:
-            node = node["children"].setdefault(sub, {"children": {}})
-        if sub2:
-            node = node["children"].setdefault(sub2, {"children": {}})
-        if sub3:
-            node["children"].setdefault(sub3, {"children": {}})
+    nodes = {}
+    for category in categories:
+        name = (category.name or "").strip()
+        if not name:
+            continue
+        nodes[category.id] = {"name": name, "children": {}, "parent_id": category.parent_id}
+    for category in categories:
+        node = nodes.get(category.id)
+        if not node:
+            continue
+        parent_id = node["parent_id"]
+        if parent_id and parent_id in nodes:
+            nodes[parent_id]["children"][node["name"]] = node
+        else:
+            tree[node["name"]] = node
+    for node in nodes.values():
+        node.pop("parent_id", None)
     return tree
+
+
+def build_nav_category_tree(categories, allowed_ids=None):
+    nodes = {}
+    roots = []
+    allowed = set(allowed_ids) if allowed_ids is not None else None
+    for category in categories:
+        if allowed is not None and category.id not in allowed:
+            continue
+        name = (category.name or "").strip()
+        slug = (category.slug or "").strip()
+        if not name or not slug:
+            continue
+        nodes[category.id] = {
+            "id": category.id,
+            "name": name,
+            "slug": slug,
+            "children": [],
+        }
+    for category in categories:
+        node = nodes.get(category.id)
+        if not node:
+            continue
+        parent_id = category.parent_id
+        if parent_id and parent_id in nodes:
+            nodes[parent_id]["children"].append(node)
+        else:
+            roots.append(node)
+    return roots
+
+
+def expand_category_ids_with_parents(categories, active_ids):
+    if not active_ids:
+        return set()
+    parent_map = {category.id: category.parent_id for category in categories}
+    expanded = set(active_ids)
+    for category_id in list(active_ids):
+        current_id = category_id
+        while True:
+            parent_id = parent_map.get(current_id)
+            if not parent_id or parent_id in expanded:
+                break
+            expanded.add(parent_id)
+            current_id = parent_id
+    return expanded
+
+
+def collect_category_ids(root_id, children_map):
+    ids = []
+    stack = [root_id]
+    while stack:
+        current_id = stack.pop()
+        ids.append(current_id)
+        for child in children_map.get(current_id, []):
+            stack.append(child.id)
+    return ids
+
+
+def parse_float_arg(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
 
 
 def user_can_view_competitor_prices(user):
@@ -102,54 +180,119 @@ def sample_competitor_prices(base_price):
 @products_bp.route("/products")
 def products():
     session = g.db
-    all_products = session.query(Product).order_by(Product.name).all()
-    item_number = (request.args.get("item_number") or "").strip().lower()
-    name_query = (request.args.get("name") or "").strip().lower()
+    item_number = (request.args.get("item_number") or "").strip()
+    name_query = (request.args.get("name") or "").strip()
     brand_filter = (request.args.get("brand") or "").strip()
     main_group_filter = (request.args.get("main_group") or "").strip()
     view_mode = request.args.get("view", "cards")
     if view_mode not in ("cards", "table"):
         view_mode = "cards"
 
-    def matches(product):
-        code = (product.item_number or "").lower()
-        name_val = (product.name or "").lower()
-        brand_val = (product.brand or "")
-        main_group = (product.primary_group or product.category or "Други")
-        if item_number and item_number not in code:
-            return False
-        if name_query and name_query not in name_val:
-            return False
-        if brand_filter and brand_val != brand_filter:
-            return False
-        if main_group_filter and main_group != main_group_filter:
-            return False
-        return True
-
-    filtered_products = [product for product in all_products if matches(product)]
     page = request.args.get("page", 1, type=int)
     per_page = 30
-    total_items = len(filtered_products)
-    start = (page - 1) * per_page
-    end = start + per_page
-    current_batch = filtered_products[start:end]
-    has_more = end < total_items
+    search_service = ProductSearchService(current_app)
+    use_es = search_service.is_enabled() and any(
+        [name_query, item_number, brand_filter, main_group_filter]
+    )
+
+    current_batch = []
+    total_items = 0
+    has_more = False
+
+    if use_es:
+        search_term = " ".join([value for value in [item_number, name_query] if value]).strip()
+        search_result = search_service.search(
+            query=search_term,
+            item_number=item_number,
+            brand=brand_filter,
+            main_group=main_group_filter,
+            page=page,
+            per_page=per_page,
+        )
+        if search_result:
+            ids, total_items = search_result
+            if ids:
+                products_by_id = {
+                    product.id: product
+                    for product in session.query(Product).filter(Product.id.in_(ids)).all()
+                }
+                current_batch = [products_by_id[pid] for pid in ids if pid in products_by_id]
+            has_more = page * per_page < total_items
+        else:
+            use_es = False
+
+    if not use_es:
+        query = session.query(Product).filter(Product.is_active.is_(True))
+        if item_number:
+            query = query.filter(func.lower(Product.item_number).contains(item_number.lower()))
+        if name_query:
+            query = query.filter(func.lower(Product.name).contains(name_query.lower()))
+        if brand_filter:
+            query = query.filter(Product.brand == brand_filter)
+        if main_group_filter:
+            group_expr = func.coalesce(Product.primary_group, Product.category)
+            query = query.filter(group_expr == main_group_filter)
+        total_items = query.order_by(None).count()
+        current_batch = (
+            query.order_by(Product.name)
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+        has_more = page * per_page < total_items
     base_args = request.args.to_dict()
     base_args.pop("page", None)
     base_args.pop("view", None)
     cards_url = url_for("products.products", **{**base_args, "view": "cards"})
     table_url = url_for("products.products", **{**base_args, "view": "table"})
-    brands = sorted({p.brand for p in all_products if p.brand})
-    main_groups = sorted({p.primary_group or p.category or "Други" for p in all_products})
-    category_tree = build_product_category_tree(all_products)
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.args.get(
+
+    is_partial = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.args.get(
         "partial"
-    ):
+    )
+    if is_partial:
         return render_template(
             "products_partial.html",
             products=current_batch,
             view_mode=view_mode,
         )
+
+    brands = (
+        session.query(Product.brand)
+        .filter(Product.is_active.is_(True))
+        .filter(Product.brand.isnot(None))
+        .filter(Product.brand != "")
+        .distinct()
+        .order_by(Product.brand)
+        .all()
+    )
+    brands = [row[0] for row in brands]
+
+    group_expr = func.coalesce(Product.primary_group, Product.category)
+    main_groups = (
+        session.query(group_expr)
+        .filter(Product.is_active.is_(True))
+        .filter(group_expr.isnot(None))
+        .filter(group_expr != "")
+        .distinct()
+        .order_by(group_expr)
+        .all()
+    )
+    main_groups = [row[0] for row in main_groups]
+
+    categories = session.query(Category).order_by(Category.level, Category.name).all()
+    active_category_ids = {
+        row[0]
+        for row in session.query(Product.category_id)
+        .filter(Product.is_active.is_(True))
+        .filter(Product.category_id.isnot(None))
+        .distinct()
+        .all()
+    }
+    visible_category_ids = expand_category_ids_with_parents(
+        categories, active_category_ids
+    )
+    category_tree = build_nav_category_tree(categories, allowed_ids=visible_category_ids)
+
     return render_template(
         "products.html",
         products=current_batch,
@@ -162,6 +305,210 @@ def products():
         cards_url=cards_url,
         table_url=table_url,
         category_tree=category_tree,
+        name_query=name_query,
+        selected_brand=brand_filter,
+        main_group_filter=main_group_filter,
+    )
+
+
+@products_bp.route("/category/<slug>")
+@products_bp.route("/categories/<slug>")
+def category_page(slug):
+    session = g.db
+    category = (
+        session.query(Category)
+        .filter(func.lower(Category.slug) == (slug or "").strip().lower())
+        .first()
+    )
+    if not category:
+        abort(404)
+
+    categories = session.query(Category).order_by(Category.level, Category.name).all()
+    active_category_ids = {
+        row[0]
+        for row in session.query(Product.category_id)
+        .filter(Product.is_active.is_(True))
+        .filter(Product.category_id.isnot(None))
+        .distinct()
+        .all()
+    }
+    visible_category_ids = expand_category_ids_with_parents(
+        categories, active_category_ids
+    )
+    category_by_id = {cat.id: cat for cat in categories}
+    children_map = {}
+    for cat in categories:
+        children_map.setdefault(cat.parent_id, []).append(cat)
+
+    category_ids = collect_category_ids(category.id, children_map)
+    nav_categories = build_nav_category_tree(categories, allowed_ids=visible_category_ids)
+    subcategories = sorted(
+        [
+            cat
+            for cat in children_map.get(category.id, [])
+            if cat.id in visible_category_ids
+        ],
+        key=lambda cat: cat.name or "",
+    )
+
+    breadcrumb = []
+    node = category
+    while node:
+        breadcrumb.append(node)
+        node = category_by_id.get(node.parent_id)
+    breadcrumb = list(reversed(breadcrumb))
+
+    search_query = (
+        request.args.get("search")
+        or request.args.get("q")
+        or request.args.get("name")
+        or ""
+    )
+    search_query = search_query.strip()
+    brand_filter = (request.args.get("brand") or "").strip()
+    min_price = parse_float_arg(request.args.get("min_price"))
+    max_price = parse_float_arg(request.args.get("max_price"))
+    eur_to_bgn = 1.95583
+    if min_price is not None:
+        min_price *= eur_to_bgn
+    if max_price is not None:
+        max_price *= eur_to_bgn
+    sort = (request.args.get("sort") or "newest").strip()
+    view_mode = request.args.get("view", "cards")
+    if view_mode not in ("cards", "table"):
+        view_mode = "cards"
+
+    price_expr = func.coalesce(
+        Product.promo_price_unit_1,
+        Product.visible_price_unit_1,
+        Product.price_unit_1,
+        Product.price_unit_2,
+    )
+
+    page = request.args.get("page", 1, type=int)
+    per_page = 30
+    search_service = ProductSearchService(current_app)
+    use_es = search_service.is_enabled() and any(
+        [search_query, brand_filter, min_price is not None, max_price is not None]
+    )
+
+    current_batch = []
+    total_items = 0
+    has_more = False
+
+    if use_es:
+        search_result = search_service.search(
+            query=search_query,
+            item_number=search_query,
+            brand=brand_filter,
+            main_group=None,
+            page=page,
+            per_page=per_page,
+            category_ids=category_ids,
+            price_min=min_price,
+            price_max=max_price,
+            sort=sort,
+        )
+        if search_result:
+            ids, total_items = search_result
+            if ids:
+                products_by_id = {
+                    product.id: product
+                    for product in session.query(Product).filter(Product.id.in_(ids)).all()
+                }
+                current_batch = [products_by_id[pid] for pid in ids if pid in products_by_id]
+            has_more = page * per_page < total_items
+        else:
+            use_es = False
+
+    if not use_es:
+        query = (
+            session.query(Product)
+            .filter(Product.is_active.is_(True))
+            .filter(Product.category_id.in_(category_ids))
+        )
+        if search_query:
+            like_search = f"%{search_query}%"
+            query = query.filter(
+                or_(
+                    Product.name.ilike(like_search),
+                    Product.item_number.ilike(like_search),
+                    Product.brand.ilike(like_search),
+                )
+            )
+        if brand_filter:
+            query = query.filter(Product.brand == brand_filter)
+        if min_price is not None:
+            query = query.filter(price_expr >= min_price)
+        if max_price is not None:
+            query = query.filter(price_expr <= max_price)
+
+        if sort == "price_asc":
+            order_clause = price_expr.asc()
+        elif sort == "price_desc":
+            order_clause = price_expr.desc()
+        else:
+            order_clause = Product.id.desc()
+
+        total_items = query.order_by(None).count()
+        current_batch = (
+            query.order_by(order_clause, Product.name)
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+        has_more = page * per_page < total_items
+
+    base_args = request.args.to_dict()
+    base_args.pop("page", None)
+    base_args.pop("view", None)
+    base_args.pop("partial", None)
+    cards_url = url_for("products.category_page", slug=category.slug, **{**base_args, "view": "cards"})
+    table_url = url_for("products.category_page", slug=category.slug, **{**base_args, "view": "table"})
+
+    is_partial = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.args.get(
+        "partial"
+    )
+    if is_partial:
+        return render_template(
+            "products_partial.html",
+            products=current_batch,
+            view_mode=view_mode,
+        )
+
+    brands = (
+        session.query(Product.brand)
+        .filter(Product.category_id.in_(category_ids))
+        .filter(Product.is_active.is_(True))
+        .filter(Product.brand.isnot(None))
+        .filter(Product.brand != "")
+        .distinct()
+        .order_by(Product.brand)
+        .all()
+    )
+    brands = [row[0] for row in brands]
+
+    return render_template(
+        "category_page.html",
+        category=category,
+        breadcrumb=breadcrumb,
+        subcategories=subcategories,
+        nav_categories=nav_categories,
+        active_category_slug=category.slug,
+        products=current_batch,
+        total_items=total_items,
+        has_more=has_more,
+        next_page=page + 1,
+        brands=brands,
+        selected_brand=brand_filter,
+        sort=sort,
+        view_mode=view_mode,
+        cards_url=cards_url,
+        table_url=table_url,
+        meta_title=category.meta_title,
+        min_price=min_price,
+        max_price=max_price,
+        search_query=search_query,
     )
 
 
@@ -170,61 +517,52 @@ def products():
 def product_detail(product_id):
     session = g.db
     product = session.get(Product, product_id)
-    if not product:
+    if not product or not product.is_active:
         abort(404)
-    warehouses_list = [
-        "ВАРНА",
-        "ДОБРИЧ",
-        "КАВАРНА",
-        "ЛОГ. СКЛАД",
-        "ПЛОВДИВ - СТРОИТЕЛНО",
-        "СОФИЯ",
-        "ШУМЕН",
-        "БУРГАС",
-    ]
-    stock_matrix = []
-    total_physical = 0.0
-    total_reserved = 0.0
-    random.seed(product.id)
-    for wh_name in warehouses_list:
-        has_stock = random.random() > 0.6
-        if has_stock:
-            qty = float(random.randint(1, 50))
-            reserved = 0.0
-            if random.random() > 0.8:
-                reserved = float(random.randint(1, int(qty)))
-            free = qty - reserved
-            stock_matrix.append(
-                {
-                    "name": wh_name,
-                    "physical": qty,
-                    "reserved": reserved,
-                    "free": free,
-                    "active": True,
-                }
-            )
-            total_physical += qty
-            total_reserved += reserved
-        else:
-            stock_matrix.append(
-                {"name": wh_name, "physical": 0.0, "reserved": 0.0, "free": 0.0, "active": False}
-            )
-    kpi_data = {
-        "physical": total_physical,
-        "reserved": total_reserved,
-        "free": total_physical - total_reserved,
-        "incoming": random.choice([0.0, 0.0, 100.0, 500.0]),
+
+    stocks = []
+    delivery_log = []
+    kpi = {
+        "physical": 0.0,
+        "reserved": 0.0,
+        "free": 0.0,
+        "incoming": 0.0,
         "scrap": 0.0,
     }
-    base_price = (
-        product.price_unit_1
-        if hasattr(product, "price_unit_1") and product.price_unit_1
-        else 10.0
-    )
-    delivery_history = [
-        {"warehouse": "СОФИЯ", "price": base_price * 1.02, "date": "15.08.2025"},
-        {"warehouse": "ДОБРИЧ", "price": base_price * 0.98, "date": "10.08.2025"},
-    ]
+    pricing = None
+
+    art_id = ArtInfoService.normalize_art_id(product.versus_id)
+    if art_id:
+        try:
+            service = ArtInfoService(session)
+            payload = service.get_art_info(art_id)
+            view = service.build_view(payload)
+            stocks = view.get("stocks") or []
+            kpi = view.get("kpi") or kpi
+            pricing = view.get("pricing")
+            delivery_log = view.get("price_rows") or []
+        except Exception as exc:
+            current_app.logger.warning("ArtInfo fetch failed for %s: %s", art_id, exc)
+
+    if pricing is None:
+        base_price = (
+            product.visible_price_unit_1
+            or product.price_unit_1
+            or product.price_unit_2
+            or 0.0
+        )
+        promo_price = product.promo_price_unit_1 or product.promo_price_unit_2
+        current_price = promo_price if promo_price else base_price
+        pricing = {
+            "current": float(current_price or 0.0),
+            "original": float(base_price or current_price or 0.0),
+            "currency": "BGN",
+            "has_promo": bool(promo_price and base_price and promo_price < base_price),
+        }
+
+    eur_rate = 1.95583
+    competitor_base_price = (pricing.get("current") or pricing.get("original") or 0.0) / eur_rate
+
     warehouse = user_warehouse(current_user)
     product_printers = []
     product_default_printer_id = None
@@ -232,23 +570,62 @@ def product_detail(product_id):
         product_printers = active_printers_for_warehouse(g.db, warehouse.id)
         default_printer = resolve_printer_for_warehouse(g.db, warehouse.id)
         product_default_printer_id = default_printer.id if default_printer else None
+    competitor_prices = []
+    if user_can_view_competitor_prices(g.current_user):
+        latest_log = (
+            session.query(PricemindSyncLog)
+            .filter(PricemindSyncLog.status == "SUCCESS")
+            .order_by(PricemindSyncLog.started_at.desc())
+            .first()
+        )
+        if latest_log:
+            snapshot = (
+                session.query(PricemindSnapshot)
+                .filter(PricemindSnapshot.sync_log_id == latest_log.id)
+                .filter(
+                    or_(
+                        PricemindSnapshot.product_id == product.id,
+                        PricemindSnapshot.sku == product.item_number,
+                    )
+                )
+                .order_by(PricemindSnapshot.id.desc())
+                .first()
+            )
+            if snapshot:
+                competitor_rows = (
+                    session.query(PricemindCompetitorPrice)
+                    .filter(PricemindCompetitorPrice.snapshot_id == snapshot.id)
+                    .all()
+                )
+                for row in competitor_rows:
+                    price = row.offer_price or row.special_price or row.regular_price
+                    if price is None:
+                        continue
+                    competitor_prices.append(
+                        {
+                            "name": row.competitor,
+                            "price": float(price) / eur_rate,
+                            "currency": "EUR",
+                            "last_checked": row.retrieved_at.strftime("%Y-%m-%d %H:%M")
+                            if row.retrieved_at
+                            else None,
+                            "url": None,
+                        }
+                    )
+
     return render_template(
         "product_detail.html",
         product=product,
-        stocks=stock_matrix,
-        kpi=kpi_data,
-        delivery_log=delivery_history,
-        competitor_prices=sample_competitor_prices(
-            product.promo_price_unit_1 or product.price_unit_1 or product.price_unit_2 or 0.0
-        )
-        if user_can_view_competitor_prices(g.current_user)
-        else [],
-        competitor_base_price=product.promo_price_unit_1 or product.price_unit_1 or product.price_unit_2 or 0.0,
+        pricing=pricing,
+        stocks=stocks,
+        kpi=kpi,
+        delivery_log=delivery_log,
+        competitor_prices=competitor_prices,
+        competitor_base_price=competitor_base_price,
         show_competitor_prices=user_can_view_competitor_prices(g.current_user),
         product_printers=product_printers,
         product_default_printer_id=product_default_printer_id,
     )
-
 
 @products_bp.route("/products/import", methods=["GET", "POST"])
 @login_required
@@ -256,6 +633,7 @@ def import_products():
     require_admin()
     session = g.db
     processed = {"created": 0, "updated": 0}
+    changed_item_numbers = set()
     if request.method == "POST":
         file = request.files.get("file")
         if not file or file.filename == "":
@@ -334,10 +712,21 @@ def import_products():
                 for key, val in payload.items():
                     setattr(product, key, val)
                 processed["updated"] += 1
+                changed_item_numbers.add(product.item_number)
             else:
                 session.add(Product(**payload))
                 processed["created"] += 1
+                changed_item_numbers.add(item_number)
         session.commit()
+        if changed_item_numbers:
+            service = ProductSearchService(current_app)
+            if service.is_enabled() and service.ensure_index():
+                products = (
+                    session.query(Product)
+                    .filter(Product.item_number.in_(list(changed_item_numbers)))
+                    .all()
+                )
+                service.bulk_index(products)
         flash(
             f"Импорт завършен. Нови: {processed['created']}, обновени: {processed['updated']}.",
             "success",
@@ -423,3 +812,14 @@ def product_lookup():
             "storage_location": product.storage_location,
         }
     )
+
+
+@products_bp.route("/products/suggest")
+def product_suggest():
+    query = (request.args.get("q") or "").strip()
+    limit = request.args.get("limit", type=int) or 8
+    service = ProductSearchService(current_app)
+    if not query or not service.is_enabled() or not service.ensure_index():
+        return jsonify({"items": []})
+    items = service.suggest(query, limit=limit)
+    return jsonify({"items": items})
